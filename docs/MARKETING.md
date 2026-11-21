@@ -1,5 +1,8 @@
 # 📱 Marketing: TikTok & Instagram
 
+> 🎨 **Hotové grafiky** (ikona, 7 příspěvků, story, thumbnail + náhled profilu):
+> [marketing/README.md](../marketing/README.md)
+
 Cíl: dostat hráče do hry **zadarmo**, přes krátká videa (TikTok, Instagram Reels,
 YouTube Shorts). Hra má k tomu skvělé předpoklady: je **vizuálně uspokojivá**
 (kopání), má **jasný progres** (ruce → bagr) a **tajemství** (co je pod pískem?).

@@ -1,0 +1,16 @@
+{
+  "name": "dune-diggers-graphics",
+  "private": true,
+  "description": "Generátor marketingových grafik Dune Diggers (three.js + Playwright)",
+  "scripts": {
+    "render": "node render.js ../../marketing/graphics/raw"
+  },
+  "dependencies": {
+    "@fontsource/fredoka": "5.2.5",
+    "@fontsource/luckiest-guy": "5.2.5",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

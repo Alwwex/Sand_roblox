@@ -42,6 +42,7 @@ Celý podrobný návod (publikování, gamepassy, ukládání, nastavení hry):
 - 📘 [docs/NAVOD.md](docs/NAVOD.md) – krok za krokem od nuly po zveřejněnou hru
 - 💎 [docs/GAMEPASSY.md](docs/GAMEPASSY.md) – gamepassy a produkty: texty, ceny, ikony, jak je vytvořit
 - 📱 [docs/MARKETING.md](docs/MARKETING.md) – TikTok & Instagram: scénáře videí, plán na 30 dní, hashtagy
+- 🎨 [marketing/README.md](marketing/README.md) – hotové grafiky: ikona, příspěvky na IG, story, thumbnail
 
 ## Struktura projektu
 
@@ -69,6 +70,8 @@ src/
     DigController.luau   ovládání kopání
     Effects.luau         prach, čísla, bouře, zvuky
 tools/build_place.py   sestaví DuneDiggers.rbxlx ze src/
+tools/graphics/        generátor marketingových grafik (three.js)
+marketing/graphics/    hotové grafiky pro Instagram/TikTok/Roblox
 tests/                 automatické testy logiky mimo Roblox
 default.project.json   pro Rojo (pokročilí)
 ```
