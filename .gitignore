@@ -1,0 +1,6 @@
+# Roblox Studio
+*.rbxl.lock
+*.rbxlx.lock
+sourcemap.json
+# Python
+__pycache__/
