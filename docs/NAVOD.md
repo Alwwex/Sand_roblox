@@ -17,6 +17,7 @@ zapnutím ukládání, vytvořením gamepassů, nastavením stránky hry a úpra
 5. [Zapnutí ukládání dat](#5-zapnutí-ukládání-dat)
 6. [Gamepassy a developer produkty](#6-gamepassy-a-developer-produkty)
    - [6.5 Hudba a zvuky](#65-hudba-a-zvuky)
+   - [6.6 Hezké 3D modely (import – 2 minuty)](#66-hezké-3d-modely-import--2-minuty)
 7. [Nastavení stránky hry (ikona, obrázky, popis)](#7-nastavení-stránky-hry)
 8. [Zveřejnění hry pro všechny](#8-zveřejnění-hry-pro-všechny)
 9. [Roblox skupina a kódy](#9-roblox-skupina-a-kódy)
@@ -249,6 +250,35 @@ Hra má **vlastní originální hudbu a zvuky** (složené kódem, žádná auto
 > Chceš jinou hudbu? Uprav `tools/audio/compose.py` (tempo, melodie) a spusť
 > `python3 tools/audio/compose.py` – vytvoří nové soubory.
 
+### 6.6 Hezké 3D modely (import – 2 minuty)
+
+![Mazlíčci – hladké 3D modely](preview/20_modely_mazlicci.jpg)
+
+Mazlíčci, vajíčka a nástroje mají **hladké 3D modely** (opravdové meshe, jako ve velkých
+Roblox hrách) v souboru **`assets/models/DuneDiggersModels.glb`**. Roblox je ale neumí
+načíst přímo z place souboru – stačí je **jednou importovat**:
+
+1. Ve Studiu: **File → Import 3D** (nebo *Home → Import 3D*).
+2. Vyber soubor `assets/models/DuneDiggersModels.glb`.
+3. V okně importu nic neměň – hlavně **NEzaškrtávej „Merge meshes"** (každý díl musí zůstat
+   zvlášť, jinak hra nepozná barvy). Klikni **Import**. Chvíli to trvá (nahrává se ~160 dílů).
+4. V Exploreru se ve **Workspace** objeví model **`DuneDiggersModels`** (vypadá jako
+   hromádka mazlíčků a nástrojů vedle sebe – to je správně).
+5. **Přetáhni ho do `ReplicatedStorage`** a přejmenuj na **`DuneMeshes`**.
+6. **Play** – mazlíčci, vajíčka v Hatchery i nástroje v ruce teď mají hladké modely. 🎉
+7. Publish (Alt+P).
+
+> Hra si sama opraví měřítko i natočení (podle 4 malých fialových značek `Ref…` v modelu –
+> **nemaž je**). Když `DuneMeshes` chybí nebo je špatně, hra **nespadne** – jen použije
+> jednodušší modely z kostiček a v Output napíše proč.
+>
+> Barvy dílů hra nastaví sama podle jejich jmen, takže nevadí, že po importu vypadají šedě.
+>
+> Chceš modely upravit? Jsou popsané kódem v `tools/models/pets.py` a `tools/models/tools.py`
+> (tvary se hladce slévají jako modelína). Po úpravě spusť
+> `pip install -r tools/models/requirements.txt` a `python3 tools/models/build_models.py`
+> a importuj znovu (starý `DuneMeshes` smaž).
+
 ---
 
 ## 7. Nastavení stránky hry
@@ -377,6 +407,8 @@ Nástroje se staví kódem z kostiček. Chceš hezčí model?
 | **Jde vidět skrz písek** | Opraveno ve v1.1 (po kopání se mažou tenké zbytky písku, kamera nesmí do zdí). Pokud to pořád vidíš, pošli screenshot. |
 | **Slabý mobil laguje** | Hráč si zapne *Low graphics* v ⚙️ Settings (vypne prach a třesení kamery). |
 | **Nejde plavat v oáze** | Opraveno ve v1.2 (voda je hluboká 14 studů, vedou do ní schody). |
+| **Mazlíčci/nástroje vypadají „kostičkově"** | Nejsou importované hladké modely – krok 6.6 (`ReplicatedStorage > DuneMeshes`). V Output hledej `[MeshLibrary]`. |
+| **Po importu jsou modely šedé / zmatené ve Workspace** | To je normální – přesuň model do ReplicatedStorage a přejmenuj na `DuneMeshes`. Barvy a pozice nastaví hra. |
 | **NPC jsou z kostiček** | NPC se stahují jako Roblox avatary. Když se avatar nenačte (např. ve Studiu bez internetu), použije se náhradní model z kostiček – ve zveřejněné hře budou avatary. |
 | **Mazlíček nechodí za hráčem** | Mazlíčky posouvá klientský skript `PetFollow` – v Outputu hledej červenou chybu. Mazlíčci se objeví asi 1 s po spawnu. |
 | **Hráč má plný inventář mazlíčků** | Limit je `Config.MaxPets` (60). Hráč může mazlíčky smazat v 🐾 PETS → DELETE. |
@@ -405,6 +437,7 @@ Automatické testy logiky: [tests/README.md](../tests/README.md).
 - [ ] 6 gamepassů vytvořeno, **For Sale**, ID v Configu
 - [ ] 4 developer produkty vytvořeny, ID v Configu
 - [ ] 5 zvukových souborů nahráno, ID v `Config.Music` a `Config.SfxPack`
+- [ ] 3D modely importované: `ReplicatedStorage > DuneMeshes` (krok 6.6)
 - [ ] V Output **není** varování `Gamepassy bez ID`
 - [ ] `Testing.GiveAllPassesInStudio = false` a `Testing.StudioStartCoins = 0`
 - [ ] Ikona 512×512 + aspoň 3 thumbnaily 1920×1080

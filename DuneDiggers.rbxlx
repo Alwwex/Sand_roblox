@@ -6,11 +6,11 @@
 			<string name="Name">Workspace</string>
 		</Properties>
 	</Item>
-	<Item class="ReplicatedStorage" referent="RBX00000008">
+	<Item class="ReplicatedStorage" referent="RBX00000009">
 		<Properties>
 			<string name="Name">ReplicatedStorage</string>
 		</Properties>
-		<Item class="Folder" referent="RBX00000007">
+		<Item class="Folder" referent="RBX00000008">
 			<Properties>
 				<string name="Name">Shared</string>
 			</Properties>
@@ -32,7 +32,7 @@
 local Config = {}
 
 Config.GameName = "Dune Diggers"
-Config.Version = "1.2"
+Config.Version = "1.3"
 Config.Changelog = {
 	"🏝️ NEW lobby: Oasis Town",
 	"🏆 Global leaderboards + #1 statue",
@@ -42,6 +42,7 @@ Config.Changelog = {
 	"🎒 Custom item selector (keys 1-9)",
 	"🥚 NEW: Eggs & pets that follow you!",
 	"📋 NEW: Daily quests",
+	"✨ NEW: Smooth 3D pets, eggs & tools",
 	"🏊 Fixed swimming in the oasis",
 	"🧱 Fixed see-through sand",
 }
@@ -496,6 +497,236 @@ return Config
 			</Item>
 			<Item class="ModuleScript" referent="RBX00000003">
 				<Properties>
+					<string name="Name">MeshLibrary</string>
+					<ProtectedString name="Source"><![CDATA[--[[
+	MeshLibrary – hladké 3D modely (MeshParty) z importovaného souboru
+	assets/models/DuneDiggersModels.glb.
+
+	Jak je dostat do hry (podrobně v docs/NAVOD.md, sekce 3D modely):
+	  1. Roblox Studio → File → Import 3D → vyber DuneDiggersModels.glb → Import
+	  2. Vzniklý model přetáhni do ReplicatedStorage a pojmenuj ho "DuneMeshes"
+	Hra pak mazlíčky, vajíčka a nástroje staví z těchto modelů. Když DuneMeshes
+	chybí, všechno funguje dál se záložními modely z kostiček (PetFactory/ToolFactory).
+
+	Jméno každého meshe nese informace:  <Asset>__<Díl>__<RRGGBB>__<Materiál>__<cx>_<cz>
+	Značky RefOrigin/RefUp/RefRight/RefForward opraví měřítko a natočení,
+	ať import použije jakékoliv jednotky nebo osy.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local MeshLibrary = {}
+
+local SPACING = 8 -- musí sedět s tools/models/build_models.py
+local NAMES = { "DuneMeshes", "DuneDiggersModels" }
+local MATERIALS = {
+	S = Enum.Material.SmoothPlastic,
+	M = Enum.Material.Metal,
+	N = Enum.Material.Neon,
+	G = Enum.Material.Glass,
+	W = Enum.Material.Wood,
+}
+local REFS = { "RefOrigin", "RefUp", "RefRight", "RefForward" }
+
+local library = nil -- nil = ještě nenačteno, false = modely nejsou k dispozici
+
+local function findRoot(): Instance?
+	for _, name in NAMES do
+		local found = ReplicatedStorage:FindFirstChild(name)
+		if found then
+			return found
+		end
+	end
+	for _, name in NAMES do
+		if workspace:FindFirstChild(name) then
+			warn(
+				("[MeshLibrary] Model '%s' je ve Workspace – přesuň ho do ReplicatedStorage a pojmenuj DuneMeshes (viz NAVOD)."):format(
+					name
+				)
+			)
+		end
+	end
+	return nil
+end
+
+-- Načte a "přepočítá" všechny MeshParty do souřadnic, ve kterých byly navržené
+function MeshLibrary.load(root: Instance?)
+	if library ~= nil and root == nil then
+		return library
+	end
+	if root == nil and RunService:IsClient() then
+		-- na klientovi počkáme, než se načte celá hra (DuneMeshes se replikuje)
+		pcall(function()
+			if not game:IsLoaded() then
+				game.Loaded:Wait()
+			end
+		end)
+	end
+	root = root or findRoot()
+	if not root then
+		library = false
+		return false
+	end
+	local refs = {}
+	local parts = {}
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") then
+			local isRef = false
+			for _, key in REFS do
+				if string.find(d.Name, key, 1, true) then
+					refs[key] = d.Position
+					isRef = true
+				end
+			end
+			if not isRef then
+				table.insert(parts, d)
+			end
+		end
+	end
+	if not (refs.RefOrigin and refs.RefUp and refs.RefRight and refs.RefForward) then
+		warn("[MeshLibrary] V DuneMeshes chybí značky Ref* – použiju záložní modely z kostiček.")
+		library = false
+		return false
+	end
+	local origin = refs.RefOrigin
+	local up = refs.RefUp - origin
+	local right = refs.RefRight - origin
+	local back = origin - refs.RefForward -- v návrhu míří "dopředu" po -Z
+	local scale = up.Magnitude / 10
+	if scale < 1e-4 or right.Unit:Cross(up.Unit):Dot(back.Unit) < 0.9 then
+		warn("[MeshLibrary] Značky v DuneMeshes nedávají smysl (zrcadlení?) – použiju záložní modely.")
+		library = false
+		return false
+	end
+	local basis = CFrame.fromMatrix(Vector3.zero, right.Unit, up.Unit, back.Unit)
+	local inverse = basis:Inverse()
+	local result = {}
+	local count = 0
+	for _, part in parts do
+		local asset, label, hex, mat, cx, cz =
+			-- bez "^": import může před jméno přidat prefix (např. jméno souboru)
+			string.match(part.Name, "(%w+)__(%w+)__(%x%x%x%x%x%x)__(%u)__(%-?%d+)_(%-?%d+)")
+		if asset then
+			local rel = inverse * (part.CFrame - origin)
+			local cell = Vector3.new((tonumber(cx) or 0) * SPACING, 0, (tonumber(cz) or 0) * SPACING)
+			local entry = {
+				Template = part,
+				Label = label,
+				CFrame = CFrame.new(rel.Position / scale - cell) * rel.Rotation,
+				Size = part.Size / scale,
+				Color = Color3.fromHex(hex),
+				Material = MATERIALS[mat] or Enum.Material.SmoothPlastic,
+				Transparency = if mat == "G" then 0.35 else 0,
+			}
+			result[asset] = result[asset] or {}
+			table.insert(result[asset], entry)
+			count += 1
+		end
+	end
+	if count == 0 then
+		warn("[MeshLibrary] DuneMeshes neobsahuje žádné MeshParty se správnými jmény.")
+		library = false
+		return false
+	end
+	library = result
+	return result
+end
+
+function MeshLibrary.has(assetId: string): boolean
+	local lib = MeshLibrary.load()
+	return lib ~= false and lib[assetId] ~= nil
+end
+
+local function cloneEntry(entry, scale: number): BasePart
+	local part = entry.Template:Clone()
+	part.Name = entry.Label
+	part.Size = entry.Size * scale
+	part.Color = entry.Color
+	part.Material = entry.Material
+	part.Transparency = entry.Transparency
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Massless = true
+	part.CastShadow = entry.Transparency == 0
+	return part
+end
+
+-- Ukotvený model (mazlíček, vajíčko, dekorace). Neviditelný "Root" v bodě (0,0,0) = PrimaryPart.
+function MeshLibrary.build(assetId: string, options): Model?
+	local lib = MeshLibrary.load()
+	local entries = lib and lib[assetId]
+	if not entries then
+		return nil
+	end
+	local scale = options and options.Scale or 1
+	local model = Instance.new("Model")
+	model.Name = assetId
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.new(0.2, 0.2, 0.2)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.CFrame = CFrame.new()
+	root.Parent = model
+	for _, entry in entries do
+		local part = cloneEntry(entry, scale)
+		part.Anchored = true
+		part.CFrame = CFrame.new(entry.CFrame.Position * scale) * entry.CFrame.Rotation
+		part.Parent = model
+	end
+	model.PrimaryPart = root
+	model:SetAttribute("Mesh", true)
+	return model
+end
+
+-- Nástroj: díly přivařené k neviditelnému Handle v místě úchopu (stejně jako ToolFactory)
+function MeshLibrary.buildTool(assetId: string, tool: Tool): boolean
+	local lib = MeshLibrary.load()
+	local entries = lib and lib[assetId]
+	if not entries then
+		return false
+	end
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(0.3, 0.3, 0.3)
+	handle.Transparency = 1
+	handle.CanCollide = false
+	handle.CanTouch = false
+	handle.CanQuery = false
+	handle.Massless = true
+	handle.CFrame = CFrame.new()
+	handle.Parent = tool
+	for _, entry in entries do
+		local part = cloneEntry(entry, 1)
+		part.Anchored = false
+		part.CFrame = entry.CFrame
+		local weld = Instance.new("Weld")
+		weld.Part0 = handle
+		weld.Part1 = part
+		weld.C0 = entry.CFrame
+		weld.Parent = part
+		part.Parent = tool
+	end
+	tool:SetAttribute("Mesh", true)
+	return true
+end
+
+-- Pro testy: zapomene načtená data
+function MeshLibrary.reset()
+	library = nil
+end
+
+return MeshLibrary
+]]></ProtectedString>
+				</Properties>
+			</Item>
+			<Item class="ModuleScript" referent="RBX00000004">
+				<Properties>
 					<string name="Name">PetFactory</string>
 					<ProtectedString name="Source"><![CDATA[--[[
 	PetFactory – modely mazlíčků a vajíček (z partů, roztomilý "chibi" styl).
@@ -504,6 +735,8 @@ return Config
 	kouká dopředu po ose -Z. Používá server (mazlíčci ve světě, vajíčka v lobby)
 	i klient (náhledy v UI a animace líhnutí).
 ]]
+
+local MeshLibrary = require(script.Parent.MeshLibrary)
 
 local PetFactory = {}
 
@@ -1033,7 +1266,43 @@ PETS.SunDragon = function(m)
 	sparkle.Parent = m:FindFirstChild("Body")
 end
 
+-- světla a efekty k hladkým (mesh) modelům
+local function decorateMesh(model: Model, petId: string)
+	local function light(partName: string, color: Color3, range: number)
+		local target = model:FindFirstChild(partName)
+		if target then
+			local pointLight = Instance.new("PointLight")
+			pointLight.Color = color
+			pointLight.Range = range
+			pointLight.Brightness = 1.4
+			pointLight.Parent = target
+		end
+		return target
+	end
+	if petId == "SunDragon" then
+		local flame = light("Flame", Color3.fromRGB(255, 160, 60), 10)
+		if flame then
+			local fire = Instance.new("Fire")
+			fire.Size = 2
+			fire.Heat = 4
+			fire.Color = Color3.fromRGB(255, 140, 40)
+			fire.Parent = flame
+		end
+	elseif petId == "WaterSpirit" then
+		light("Core", Color3.fromRGB(120, 230, 255), 9)
+	elseif petId == "GoldenScarab" then
+		light("Sun", Color3.fromRGB(255, 170, 60), 8)
+	end
+end
+
 function PetFactory.build(petId: string): Model
+	local meshModel = MeshLibrary.build(petId)
+	if meshModel then
+		decorateMesh(meshModel, petId)
+		meshModel:SetAttribute("PetId", petId)
+		meshModel:SetAttribute("Flying", FLYING[petId] == true)
+		return meshModel
+	end
 	local model = newModel(petId)
 	local builder = PETS[petId] or PETS.SandBunny
 	builder(model)
@@ -1071,6 +1340,17 @@ local EGGS = {
 }
 
 function PetFactory.egg(eggId: string, scale: number?): Model
+	-- hladký model je o něco menší než ten z kostiček (2.4 vs 3 studs) => x1.2
+	local meshEgg = MeshLibrary.build(eggId, { Scale = (scale or 1) * 1.2 })
+	if meshEgg then
+		local gem = meshEgg:FindFirstChild("Gem")
+		if gem then
+			local sparkles = Instance.new("Sparkles")
+			sparkles.SparkleColor = GOLD
+			sparkles.Parent = gem
+		end
+		return meshEgg
+	end
 	local s = scale or 1
 	local style = EGGS[eggId] or EGGS.SandEgg
 	local model = newModel(eggId)
@@ -1122,7 +1402,7 @@ return PetFactory
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="ModuleScript" referent="RBX00000004">
+			<Item class="ModuleScript" referent="RBX00000005">
 				<Properties>
 					<string name="Name">Remotes</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -1188,7 +1468,7 @@ return Remotes
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="ModuleScript" referent="RBX00000005">
+			<Item class="ModuleScript" referent="RBX00000006">
 				<Properties>
 					<string name="Name">ToolFactory</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -1204,6 +1484,7 @@ return Remotes
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local MeshLibrary = require(ReplicatedStorage.Shared.MeshLibrary)
 
 local ToolFactory = {}
 
@@ -1302,6 +1583,9 @@ end
 local function grip(tiltDegrees: number): CFrame
 	return CFrame.Angles(math.rad(tiltDegrees), 0, 0)
 end
+
+-- náklon v ruce (stejný pro modely z kostiček i pro hladké meshe)
+local GRIP_TILT = { Spoon = 15, Trowel = 20, Shovel = 25, GoldenShovel = 25, Vacuum = 12, Blaster = 8, Excavator = 18 }
 
 -- Kovový list lopaty: obdélník + "kosočtverec" vpředu = špička
 local function spadeBlade(B, z: number, width: number, length: number, color: Color3, material: Enum.Material?)
@@ -1570,6 +1854,19 @@ function ToolFactory.create(toolId: string): Tool
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
 	tool:SetAttribute("DigToolId", config.Id)
+
+	-- Hladký model z importovaných meshů (ReplicatedStorage > DuneMeshes), pokud je k dispozici
+	if config.Id ~= "Hands" and MeshLibrary.buildTool(config.Id, tool) then
+		tool.Grip = grip(GRIP_TILT[config.Id] or 20)
+		local gem = tool:FindFirstChild("Gem")
+		if gem and config.Id == "GoldenShovel" then
+			local sparkles = Instance.new("Sparkles")
+			sparkles.SparkleColor = GOLD
+			sparkles.Parent = gem
+		end
+		return tool
+	end
+
 	local builder = BUILDERS[config.Id] or BUILDERS.Shovel
 	builder(tool)
 	return tool
@@ -1596,7 +1893,7 @@ return ToolFactory
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="ModuleScript" referent="RBX00000006">
+			<Item class="ModuleScript" referent="RBX00000007">
 				<Properties>
 					<string name="Name">Util</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -1648,15 +1945,15 @@ return Util
 			</Item>
 		</Item>
 	</Item>
-	<Item class="ServerScriptService" referent="RBX0000001A">
+	<Item class="ServerScriptService" referent="RBX0000001B">
 		<Properties>
 			<string name="Name">ServerScriptService</string>
 		</Properties>
-		<Item class="Folder" referent="RBX00000019">
+		<Item class="Folder" referent="RBX0000001A">
 			<Properties>
 				<string name="Name">Server</string>
 			</Properties>
-			<Item class="Script" referent="RBX00000009">
+			<Item class="Script" referent="RBX0000000A">
 				<Properties>
 					<string name="Name">Main</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -1772,11 +2069,11 @@ end
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="Folder" referent="RBX00000018">
+			<Item class="Folder" referent="RBX00000019">
 				<Properties>
 					<string name="Name">Services</string>
 				</Properties>
-				<Item class="ModuleScript" referent="RBX0000000A">
+				<Item class="ModuleScript" referent="RBX0000000B">
 					<Properties>
 						<string name="Name">Build</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -2315,7 +2612,7 @@ return Build
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000B">
+				<Item class="ModuleScript" referent="RBX0000000C">
 					<Properties>
 						<string name="Name">DataService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -2798,7 +3095,7 @@ return DataService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000C">
+				<Item class="ModuleScript" referent="RBX0000000D">
 					<Properties>
 						<string name="Name">DigService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -2918,7 +3215,7 @@ return DigService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000D">
+				<Item class="ModuleScript" referent="RBX0000000E">
 					<Properties>
 						<string name="Name">LeaderboardService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -3242,7 +3539,7 @@ return LeaderboardService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000E">
+				<Item class="ModuleScript" referent="RBX0000000F">
 					<Properties>
 						<string name="Name">LobbyBuilder</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -4566,7 +4863,7 @@ return LobbyBuilder
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000F">
+				<Item class="ModuleScript" referent="RBX00000010">
 					<Properties>
 						<string name="Name">MonetizationService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -4778,7 +5075,7 @@ return MonetizationService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000010">
+				<Item class="ModuleScript" referent="RBX00000011">
 					<Properties>
 						<string name="Name">PetService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5029,7 +5326,7 @@ return PetService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000011">
+				<Item class="ModuleScript" referent="RBX00000012">
 					<Properties>
 						<string name="Name">QuestService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5154,7 +5451,7 @@ return QuestService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000012">
+				<Item class="ModuleScript" referent="RBX00000013">
 					<Properties>
 						<string name="Name">RewardService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5338,7 +5635,7 @@ return RewardService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000013">
+				<Item class="ModuleScript" referent="RBX00000014">
 					<Properties>
 						<string name="Name">SandstormService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5443,7 +5740,7 @@ return SandstormService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000014">
+				<Item class="ModuleScript" referent="RBX00000015">
 					<Properties>
 						<string name="Name">ShopService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5734,7 +6031,7 @@ return ShopService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000015">
+				<Item class="ModuleScript" referent="RBX00000016">
 					<Properties>
 						<string name="Name">Stats</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5836,7 +6133,7 @@ return Stats
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000016">
+				<Item class="ModuleScript" referent="RBX00000017">
 					<Properties>
 						<string name="Name">TreasureService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -6354,7 +6651,7 @@ return TreasureService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000017">
+				<Item class="ModuleScript" referent="RBX00000018">
 					<Properties>
 						<string name="Name">WorldService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -6980,19 +7277,19 @@ return WorldService
 			</Item>
 		</Item>
 	</Item>
-	<Item class="StarterPlayer" referent="RBX0000002A">
+	<Item class="StarterPlayer" referent="RBX0000002B">
 		<Properties>
 			<string name="Name">StarterPlayer</string>
 		</Properties>
-		<Item class="StarterPlayerScripts" referent="RBX00000028">
+		<Item class="StarterPlayerScripts" referent="RBX00000029">
 			<Properties>
 				<string name="Name">StarterPlayerScripts</string>
 			</Properties>
-			<Item class="Folder" referent="RBX00000027">
+			<Item class="Folder" referent="RBX00000028">
 				<Properties>
 					<string name="Name">Client</string>
 				</Properties>
-				<Item class="ModuleScript" referent="RBX0000001B">
+				<Item class="ModuleScript" referent="RBX0000001C">
 					<Properties>
 						<string name="Name">Audio</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7174,7 +7471,7 @@ return Audio
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001C">
+				<Item class="ModuleScript" referent="RBX0000001D">
 					<Properties>
 						<string name="Name">DigController</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7373,7 +7670,7 @@ return DigController
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001D">
+				<Item class="ModuleScript" referent="RBX0000001E">
 					<Properties>
 						<string name="Name">Effects</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7643,7 +7940,7 @@ return Effects
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001E">
+				<Item class="ModuleScript" referent="RBX0000001F">
 					<Properties>
 						<string name="Name">HatchFx</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7853,7 +8150,7 @@ return HatchFx
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001F">
+				<Item class="ModuleScript" referent="RBX00000020">
 					<Properties>
 						<string name="Name">Hotbar</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -8276,7 +8573,7 @@ return Hotbar
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000020">
+				<Item class="ModuleScript" referent="RBX00000021">
 					<Properties>
 						<string name="Name">Hud</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -8844,7 +9141,7 @@ return Hud
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="LocalScript" referent="RBX00000021">
+				<Item class="LocalScript" referent="RBX00000022">
 					<Properties>
 						<string name="Name">Main</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -9168,7 +9465,7 @@ end)
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000022">
+				<Item class="ModuleScript" referent="RBX00000023">
 					<Properties>
 						<string name="Name">MainMenu</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -9484,7 +9781,7 @@ return MainMenu
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000023">
+				<Item class="ModuleScript" referent="RBX00000024">
 					<Properties>
 						<string name="Name">PetFollow</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -9587,7 +9884,7 @@ return PetFollow
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000024">
+				<Item class="ModuleScript" referent="RBX00000025">
 					<Properties>
 						<string name="Name">UI</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -9726,7 +10023,7 @@ return UI
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000025">
+				<Item class="ModuleScript" referent="RBX00000026">
 					<Properties>
 						<string name="Name">UIKit</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -10205,7 +10502,7 @@ return UIKit
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000026">
+				<Item class="ModuleScript" referent="RBX00000027">
 					<Properties>
 						<string name="Name">Windows</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -12078,7 +12375,7 @@ return Windows
 				</Item>
 			</Item>
 		</Item>
-		<Item class="StarterCharacterScripts" referent="RBX00000029">
+		<Item class="StarterCharacterScripts" referent="RBX0000002A">
 			<Properties>
 				<string name="Name">StarterCharacterScripts</string>
 			</Properties>

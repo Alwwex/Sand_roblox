@@ -46,7 +46,7 @@ LUAU_RUNNER=./target/release/luaurun python3 tests/run_tests.py
 Očekávaný výsledek:
 
 ```
-VÝSLEDEK: 111 OK, 0 CHYB
+VÝSLEDEK: 125 OK, 0 CHYB
 KLIENT: 37 OK, 0 CHYB
 ```
 

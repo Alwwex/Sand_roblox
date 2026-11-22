@@ -156,3 +156,69 @@ for (const [name, cfg] of Object.entries(UI_STATES)) {
     return { after: async () => {} };
   };
 }
+
+// ---------------------------------------------------------------------------
+// Náhled meshů z assets/models/DuneDiggersModels.glb (jak budou vypadat v Robloxu)
+// URL: ?g=mesh&file=models/DuneDiggersModels.glb&assets=SandBunny,FennecFox&yaw=25&pitch=12&zoom=1
+// ---------------------------------------------------------------------------
+PREVIEW_SCENES.mesh = async ({ W, H }) => {
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const q = new URLSearchParams(location.search);
+  const file = q.get('file') || 'models/DuneDiggersModels.glb';
+  const wanted = (q.get('assets') || '').split(',').filter(Boolean);
+  const yaw = THREE.MathUtils.degToRad(Number(q.get('yaw') ?? 28));
+  const pitch = THREE.MathUtils.degToRad(Number(q.get('pitch') ?? 14));
+  const zoom = Number(q.get('zoom') ?? 1);
+  const gap = Number(q.get('gap') ?? 0.9);
+  const r = L.setup(W, H, { fov: 30, bloom: 0.2, bloomThreshold: 0.95, env: 0.45, exposure: 0.95 });
+  const { scene, camera } = r;
+  scene.background = new THREE.Color(0x9fd3f5);
+  const gltf = await new Promise((res, rej) => new GLTFLoader().load('/out/' + file, res, undefined, rej));
+  const groups = new Map();
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const m = o.name.match(/^(\w+?)__(\w+?)__([0-9A-F]{6})__([A-Z])__/);
+    if (!m) { o.visible = false; return; }
+    const [, asset, , hex, mat] = m;
+    if (wanted.length && !wanted.includes(asset)) { o.visible = false; return; }
+    const color = new THREE.Color('#' + hex);
+    const opts = { color, roughness: 0.5, metalness: 0 };
+    if (mat === 'M') Object.assign(opts, { metalness: 0.75, roughness: 0.32 });
+    if (mat === 'W') Object.assign(opts, { roughness: 0.85 });
+    if (mat === 'N') Object.assign(opts, { emissive: color, emissiveIntensity: 1.3, roughness: 0.4 });
+    if (mat === 'G') Object.assign(opts, { transparent: true, opacity: 0.55, roughness: 0.08, depthWrite: false });
+    o.material = new THREE.MeshStandardMaterial(opts);
+    o.castShadow = mat !== 'G';
+    o.receiveShadow = true;
+    if (!groups.has(asset)) groups.set(asset, []);
+    groups.get(asset).push(o);
+  });
+  scene.add(gltf.scene);
+  gltf.scene.updateMatrixWorld(true);
+  // přeskládat vybrané modely do řady (zleva doprava z pohledu kamery)
+  const order = wanted.length ? wanted.filter((a) => groups.has(a)) : [...groups.keys()];
+  let cursor = 0;
+  const all = new THREE.Box3();
+  for (const asset of order) {
+    const box = new THREE.Box3();
+    for (const o of groups.get(asset)) box.expandByObject(o);
+    const width = box.max.x - box.min.x;
+    const dx = -(cursor + width / 2) - (box.min.x + box.max.x) / 2;
+    const dz = -(box.min.z + box.max.z) / 2;
+    for (const o of groups.get(asset)) { o.position.x += dx; o.position.z += dz; o.position.y -= box.min.y; }
+    cursor += width + gap;
+  }
+  gltf.scene.updateMatrixWorld(true);
+  for (const asset of order) for (const o of groups.get(asset)) all.expandByObject(o);
+  const center = all.getCenter(new THREE.Vector3());
+  const size = all.getSize(new THREE.Vector3());
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(400, 64), new THREE.MeshStandardMaterial({ color: 0xe9b873, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  L.lights(scene, { sun: V(-18, 30, -22), target: center, shadowSize: Math.max(size.x, size.z) * 0.8 + 4, sunI: 3.0, hemiI: 0.55 });
+  const radius = Math.max(size.x / (W / H), size.y) * 0.62 / zoom + 1;
+  const dist = radius / Math.tan(THREE.MathUtils.degToRad(15));
+  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  camera.position.copy(center).add(dir.multiplyScalar(dist));
+  camera.lookAt(center);
+  return r;
+};

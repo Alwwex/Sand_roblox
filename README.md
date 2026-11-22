@@ -9,7 +9,23 @@ a všechno znovu zasype – s novými poklady.
 > žánrem „kopej a vylepšuj" z videa, ale nekopíruje cizí hru – to je důležité,
 > aby ti ji Roblox nesmazal a abys ji mohl/a v klidu propagovat.
 
-## 🆕 Verze 1.2 – vajíčka, mazlíčci a úkoly
+## 🆕 Verze 1.3 – opravdové 3D modely
+
+![Mazlíčci – hladké 3D modely](docs/preview/20_modely_mazlicci.jpg)
+
+| | |
+|---|---|
+| ![Mazlíčci 2](docs/preview/21_modely_mazlicci2.jpg) | ![Vajíčka](docs/preview/22_modely_vajicka.jpg) |
+| ![Nástroje](docs/preview/23_modely_nastroje.jpg) | ![Velké nástroje](docs/preview/24_modely_nastroje2.jpg) |
+
+- ✨ Mazlíčci, vajíčka a nástroje jsou teď **hladké 3D meshe** (jako ve velkých Roblox hrách), ne modely z kostiček:
+  tvary se slévají jako modelína, barvy jsou „namalované" na povrch (bříška, tvářičky, pusinky, pruhy).
+- 📦 Všechno je v jednom souboru `assets/models/DuneDiggersModels.glb` – **jednou ho importuj** do Studia
+  (2 minuty, návod v [NAVOD.md, krok 6.6](docs/NAVOD.md#66-hezké-3d-modely-import--2-minuty)).
+- 🛟 Když modely importované nejsou, hra normálně jede se staršími modely z kostiček.
+- 🛠️ Modely jsou popsané kódem (`tools/models/`) – dají se upravit a znovu vygenerovat.
+
+## Verze 1.2 – vajíčka, mazlíčci a úkoly
 
 | | |
 |---|---|
@@ -81,6 +97,8 @@ a všechno znovu zasype – s novými poklady.
 2. Stáhni z tohoto repozitáře soubor **`DuneDiggers.rbxlx`**.
 3. Otevři ho v Roblox Studiu (dvojklik nebo *File → Open from File*).
 4. Zmáčkni **Play** (F5) a kopej 🎉
+5. Pro hezké hladké 3D modely mazlíčků a nástrojů importuj jednou `assets/models/DuneDiggersModels.glb`
+   (*File → Import 3D*, model přesuň do ReplicatedStorage a přejmenuj na `DuneMeshes` – [návod 6.6](docs/NAVOD.md#66-hezké-3d-modely-import--2-minuty)).
 
 Celý podrobný návod (publikování, gamepassy, ukládání, nastavení hry):
 👉 **[docs/NAVOD.md](docs/NAVOD.md)**
@@ -102,6 +120,7 @@ src/
     Util.luau            formátování čísel a času
     ToolFactory.luau     modely nástrojů (do ruky, do lobby i do náhledů v obchodě)
     PetFactory.luau      modely mazlíčků a vajíček
+    MeshLibrary.luau     načítá hladké 3D modely (ReplicatedStorage > DuneMeshes)
   server/              -> ServerScriptService/Server
     Main.server.luau     spouští hru
     Services/
@@ -133,6 +152,8 @@ src/
     DigController.luau   ovládání kopání
     Effects.luau         prach, čísla, bouře, třesení kamery
 assets/audio/          originální hudba a zvuky (nahraj na Roblox, viz návod 6.5)
+assets/models/         hladké 3D modely (.glb) – importuj do Studia, viz návod 6.6
+tools/models/          generátor 3D modelů (Python, SDF "modelína")
 tools/build_place.py   sestaví DuneDiggers.rbxlx ze src/
 tools/audio/           generátor hudby a zvuků (Python)
 tools/graphics/        generátor marketingových grafik (three.js)

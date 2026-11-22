@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
-SHARED = ["Config", "Remotes", "Util", "ToolFactory", "PetFactory"]
+SHARED = ["Config", "Remotes", "Util", "MeshLibrary", "ToolFactory", "PetFactory"]
 CLIENT = [
     "UIKit",
     "Audio",

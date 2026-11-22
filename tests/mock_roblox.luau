@@ -21,6 +21,14 @@ V3.__index = function(self, key)
 			return Vector3.new(0, 0, 0)
 		end
 		return Vector3.new(self.X / m, self.Y / m, self.Z / m)
+	elseif key == "Dot" then
+		return function(a, b)
+			return a.X * b.X + a.Y * b.Y + a.Z * b.Z
+		end
+	elseif key == "Cross" then
+		return function(a, b)
+			return Vector3.new(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X)
+		end
 	end
 	return nil
 end
@@ -193,6 +201,10 @@ CFrame = {
 		return mkCF(at, { right.X, u.X, -f.X, right.Y, u.Y, -f.Y, right.Z, u.Z, -f.Z })
 	end,
 }
+CFrame.fromMatrix = function(pos, vx, vy, vz)
+	vz = vz or vx:Cross(vy)
+	return mkCF(pos, { vx.X, vy.X, vz.X, vx.Y, vy.Y, vz.Y, vx.Z, vy.Z, vz.Z })
+end
 CFrame.identity = CFrame.new()
 
 ---------------------------------------------------------------------
@@ -225,6 +237,10 @@ Color3.new = function(r, g, b)
 end
 Color3.fromRGB = function(r, g, b)
 	return Color3.new(r / 255, g / 255, b / 255)
+end
+Color3.fromHex = function(hex)
+	hex = hex:gsub("#", "")
+	return Color3.fromRGB(tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16))
 end
 ColorSequence = dataType("ColorSequence")
 ColorSequenceKeypoint = dataType("ColorSequenceKeypoint")
@@ -358,7 +374,10 @@ local function newInstance(className, name)
 	local methods = {}
 	function methods:IsA(cls)
 		if cls == "BasePart" then
-			return data.ClassName == "Part" or data.ClassName == "SpawnLocation" or data.ClassName == "WedgePart"
+			return data.ClassName == "Part"
+				or data.ClassName == "SpawnLocation"
+				or data.ClassName == "WedgePart"
+				or data.ClassName == "MeshPart"
 		end
 		if cls == "GuiObject" then
 			return data.ClassName == "Frame" or data.ClassName == "TextLabel" or data.ClassName == "TextButton"
@@ -389,6 +408,22 @@ local function newInstance(className, name)
 	end
 	function methods:WaitForChild(n)
 		return obj:FindFirstChild(n)
+	end
+	function methods:Clone()
+		local copy = newInstance(data.ClassName, data.Name)
+		local cd = mock.dataOf(copy)
+		for key, value in data do
+			if type(key) == "string" and key:sub(1, 2) ~= "__" and key ~= "Parent" then
+				cd[key] = value
+			end
+		end
+		for key, value in data.__attributes do
+			cd.__attributes[key] = value
+		end
+		for _, child in data.__children do
+			child:Clone().Parent = copy
+		end
+		return copy
 	end
 	function methods:FindFirstChildOfClass(cls)
 		for _, c in data.__children do
@@ -779,6 +814,9 @@ end
 mock.dataOf(runService).__methods.IsServer = function()
 	return true
 end
+mock.dataOf(runService).__methods.IsClient = function()
+	return false
+end
 services.RunService = runService
 
 local tweenService = newInstance("TweenService")
@@ -832,6 +870,9 @@ mock.dataOf(game).__methods.GetService = function(_, name)
 	return s
 end
 mock.dataOf(game).__methods.BindToClose = function() end
+mock.dataOf(game).__methods.IsLoaded = function()
+	return true
+end
 mock.services = services
 
 ---------------------------------------------------------------------

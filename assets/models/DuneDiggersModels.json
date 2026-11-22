@@ -1,0 +1,90 @@
+{
+ "SandBunny": {
+  "meshes": 8,
+  "tris": 11962
+ },
+ "DesertMouse": {
+  "meshes": 8,
+  "tris": 12084
+ },
+ "ScarabBug": {
+  "meshes": 8,
+  "tris": 15714
+ },
+ "FennecFox": {
+  "meshes": 7,
+  "tris": 12624
+ },
+ "LilyFrog": {
+  "meshes": 8,
+  "tris": 11208
+ },
+ "OasisTurtle": {
+  "meshes": 7,
+  "tris": 19826
+ },
+ "PalmParrot": {
+  "meshes": 10,
+  "tris": 13642
+ },
+ "WaterSpirit": {
+  "meshes": 6,
+  "tris": 11448
+ },
+ "MummyCat": {
+  "meshes": 8,
+  "tris": 13546
+ },
+ "GoldenScarab": {
+  "meshes": 11,
+  "tris": 23258
+ },
+ "SphinxCat": {
+  "meshes": 11,
+  "tris": 25410
+ },
+ "SunDragon": {
+  "meshes": 12,
+  "tris": 20816
+ },
+ "SandEgg": {
+  "meshes": 3,
+  "tris": 7860
+ },
+ "OasisEgg": {
+  "meshes": 3,
+  "tris": 7312
+ },
+ "PharaohEgg": {
+  "meshes": 3,
+  "tris": 7242
+ },
+ "Spoon": {
+  "meshes": 3,
+  "tris": 4840
+ },
+ "Trowel": {
+  "meshes": 4,
+  "tris": 3816
+ },
+ "Shovel": {
+  "meshes": 7,
+  "tris": 14286
+ },
+ "GoldenShovel": {
+  "meshes": 4,
+  "tris": 17156
+ },
+ "Vacuum": {
+  "meshes": 12,
+  "tris": 20672
+ },
+ "Blaster": {
+  "meshes": 8,
+  "tris": 18918
+ },
+ "Excavator": {
+  "meshes": 6,
+  "tris": 26776
+ }
+}

@@ -13,7 +13,7 @@
 local Config = {}
 
 Config.GameName = "Dune Diggers"
-Config.Version = "1.2"
+Config.Version = "1.3"
 Config.Changelog = {
 	"🏝️ NEW lobby: Oasis Town",
 	"🏆 Global leaderboards + #1 statue",
@@ -23,6 +23,7 @@ Config.Changelog = {
 	"🎒 Custom item selector (keys 1-9)",
 	"🥚 NEW: Eggs & pets that follow you!",
 	"📋 NEW: Daily quests",
+	"✨ NEW: Smooth 3D pets, eggs & tools",
 	"🏊 Fixed swimming in the oasis",
 	"🧱 Fixed see-through sand",
 }

@@ -387,6 +387,73 @@ session.Data.Quests.Day = 0
 QuestService.ensure(player)
 check("nový den = nové úkoly", session.Data.Quests.Day ~= 0 and session.Data.Quests.List[1].Claimed == false)
 
+print("== Hladké modely (MeshLibrary) ==")
+local MeshLibrary = require(tree.Shared.MeshLibrary)
+local PetFactory = require(tree.Shared.PetFactory)
+local ToolFactory = require(tree.Shared.ToolFactory)
+local ReplicatedStorage = mock.services.ReplicatedStorage
+MeshLibrary.reset()
+check("bez DuneMeshes = modely z kostiček", PetFactory.build("SandBunny"):GetAttribute("Mesh") == nil)
+-- falešný import: soubor v metrech (x 1/0.28), otočený o 180° a posunutý
+local fake = Instance.new("Model")
+fake.Name = "DuneMeshes"
+local S = 1 / 0.28
+local T = CFrame.new(50, 3, -20) * CFrame.Angles(0, math.pi, 0)
+local function place(name, designPos, size)
+	local p = Instance.new("MeshPart")
+	p.Name = name
+	p.Size = size * S
+	p.CFrame = T * CFrame.new(designPos * S)
+	p.Parent = fake
+	return p
+end
+place("RefOrigin", Vector3.new(0, 0, 0), Vector3.new(0.3, 0.3, 0.3))
+place("RefUp", Vector3.new(0, 10, 0), Vector3.new(0.3, 0.3, 0.3))
+place("RefRight", Vector3.new(10, 0, 0), Vector3.new(0.3, 0.3, 0.3))
+place("RefForward", Vector3.new(0, 0, -10), Vector3.new(0.3, 0.3, 0.3))
+place("SandBunny__Body__F2DAB2__S__0_0", Vector3.new(0, 1.1, 0.05), Vector3.new(2, 2.6, 1.9))
+place("SandBunny__Eyes__261A18__S__0_0", Vector3.new(0, 1.3, -0.85), Vector3.new(0.9, 0.4, 0.2))
+place("Shovel__Blade__B2BAC6__M__2_4", Vector3.new(16, 0, 32 - 3.9), Vector3.new(1.3, 0.3, 1.6))
+place("SunDragon__Flame__FF781E__N__5_1", Vector3.new(41, 1.5, 9.9), Vector3.new(0.4, 0.8, 0.4))
+place("SandEgg__Shell__F6E2B6__S__1_2", Vector3.new(8, 1.2, 16), Vector3.new(2, 2.4, 2))
+fake.Parent = ReplicatedStorage
+MeshLibrary.reset()
+local bunny = PetFactory.build("SandBunny")
+check("mazlíček z meshů", bunny:GetAttribute("Mesh") == true and bunny:GetAttribute("PetId") == "SandBunny")
+local bunnyBody = bunny:FindFirstChild("Body")
+check(
+	"pozice dílu přepočtená zpět",
+	bunnyBody and (bunnyBody.Position - Vector3.new(0, 1.1, 0.05)).Magnitude < 1e-3,
+	bunnyBody and tostring(bunnyBody.Position)
+)
+check("velikost dílu přepočtená zpět", bunnyBody and (bunnyBody.Size - Vector3.new(2, 2.6, 1.9)).Magnitude < 1e-3)
+check("barva a materiál podle jména", bunnyBody and math.abs(bunnyBody.Color.R - 0xF2 / 255) < 1e-3)
+check("mazlíček má Root jako PrimaryPart", bunny.PrimaryPart and bunny.PrimaryPart.Name == "Root")
+local dragon = PetFactory.build("SunDragon")
+local flame = dragon:FindFirstChild("Flame")
+check("drak: plamen se světlem", flame and flame:FindFirstChildOfClass("PointLight") ~= nil)
+check("drak: pozice plamene", flame and (flame.Position - Vector3.new(1, 1.5, 1.9)).Magnitude < 1e-3)
+local egg = PetFactory.egg("SandEgg", 1)
+local shellPart = egg:FindFirstChild("Shell")
+check(
+	"vajíčko z meshů (x1.2)",
+	shellPart and math.abs(shellPart.Size.Y - 2.88) < 1e-3,
+	shellPart and shellPart.Size.Y
+)
+local shovelTool = ToolFactory.create("Shovel")
+local bladePart = shovelTool:FindFirstChild("Blade")
+local bladeWeld = bladePart and bladePart:FindFirstChildOfClass("Weld")
+check("nástroj z meshů", shovelTool:GetAttribute("Mesh") == true and shovelTool:FindFirstChild("Handle") ~= nil)
+check(
+	"díl nástroje přivařený na správném místě",
+	bladeWeld and (bladeWeld.C0.Position - Vector3.new(0, 0, -3.9)).Magnitude < 1e-3
+)
+check("chybějící mesh = záložní model", PetFactory.build("FennecFox"):GetAttribute("Mesh") == nil)
+check("ruce nemají mesh", ToolFactory.create("Hands"):GetAttribute("Mesh") == nil)
+fake.Parent = nil
+MeshLibrary.reset()
+check("bez DuneMeshes zase kostičky", PetFactory.build("SandBunny"):GetAttribute("Mesh") == nil)
+
 print("== Ukládání ==")
 mock.services.Players.PlayerRemoving:Fire(player)
 local stored = mock.stores["DuneDiggers_PlayerData_v1"]["Player_101"]

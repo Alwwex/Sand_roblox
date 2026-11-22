@@ -11,6 +11,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local MeshLibrary = require(ReplicatedStorage.Shared.MeshLibrary)
 
 local ToolFactory = {}
 
@@ -109,6 +110,9 @@ end
 local function grip(tiltDegrees: number): CFrame
 	return CFrame.Angles(math.rad(tiltDegrees), 0, 0)
 end
+
+-- náklon v ruce (stejný pro modely z kostiček i pro hladké meshe)
+local GRIP_TILT = { Spoon = 15, Trowel = 20, Shovel = 25, GoldenShovel = 25, Vacuum = 12, Blaster = 8, Excavator = 18 }
 
 -- Kovový list lopaty: obdélník + "kosočtverec" vpředu = špička
 local function spadeBlade(B, z: number, width: number, length: number, color: Color3, material: Enum.Material?)
@@ -377,6 +381,19 @@ function ToolFactory.create(toolId: string): Tool
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
 	tool:SetAttribute("DigToolId", config.Id)
+
+	-- Hladký model z importovaných meshů (ReplicatedStorage > DuneMeshes), pokud je k dispozici
+	if config.Id ~= "Hands" and MeshLibrary.buildTool(config.Id, tool) then
+		tool.Grip = grip(GRIP_TILT[config.Id] or 20)
+		local gem = tool:FindFirstChild("Gem")
+		if gem and config.Id == "GoldenShovel" then
+			local sparkles = Instance.new("Sparkles")
+			sparkles.SparkleColor = GOLD
+			sparkles.Parent = gem
+		end
+		return tool
+	end
+
 	local builder = BUILDERS[config.Id] or BUILDERS.Shovel
 	builder(tool)
 	return tool

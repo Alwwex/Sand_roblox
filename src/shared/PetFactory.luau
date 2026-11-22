@@ -6,6 +6,8 @@
 	i klient (náhledy v UI a animace líhnutí).
 ]]
 
+local MeshLibrary = require(script.Parent.MeshLibrary)
+
 local PetFactory = {}
 
 local BLACK = Color3.fromRGB(28, 22, 20)
@@ -534,7 +536,43 @@ PETS.SunDragon = function(m)
 	sparkle.Parent = m:FindFirstChild("Body")
 end
 
+-- světla a efekty k hladkým (mesh) modelům
+local function decorateMesh(model: Model, petId: string)
+	local function light(partName: string, color: Color3, range: number)
+		local target = model:FindFirstChild(partName)
+		if target then
+			local pointLight = Instance.new("PointLight")
+			pointLight.Color = color
+			pointLight.Range = range
+			pointLight.Brightness = 1.4
+			pointLight.Parent = target
+		end
+		return target
+	end
+	if petId == "SunDragon" then
+		local flame = light("Flame", Color3.fromRGB(255, 160, 60), 10)
+		if flame then
+			local fire = Instance.new("Fire")
+			fire.Size = 2
+			fire.Heat = 4
+			fire.Color = Color3.fromRGB(255, 140, 40)
+			fire.Parent = flame
+		end
+	elseif petId == "WaterSpirit" then
+		light("Core", Color3.fromRGB(120, 230, 255), 9)
+	elseif petId == "GoldenScarab" then
+		light("Sun", Color3.fromRGB(255, 170, 60), 8)
+	end
+end
+
 function PetFactory.build(petId: string): Model
+	local meshModel = MeshLibrary.build(petId)
+	if meshModel then
+		decorateMesh(meshModel, petId)
+		meshModel:SetAttribute("PetId", petId)
+		meshModel:SetAttribute("Flying", FLYING[petId] == true)
+		return meshModel
+	end
 	local model = newModel(petId)
 	local builder = PETS[petId] or PETS.SandBunny
 	builder(model)
@@ -572,6 +610,17 @@ local EGGS = {
 }
 
 function PetFactory.egg(eggId: string, scale: number?): Model
+	-- hladký model je o něco menší než ten z kostiček (2.4 vs 3 studs) => x1.2
+	local meshEgg = MeshLibrary.build(eggId, { Scale = (scale or 1) * 1.2 })
+	if meshEgg then
+		local gem = meshEgg:FindFirstChild("Gem")
+		if gem then
+			local sparkles = Instance.new("Sparkles")
+			sparkles.SparkleColor = GOLD
+			sparkles.Parent = gem
+		end
+		return meshEgg
+	end
 	local s = scale or 1
 	local style = EGGS[eggId] or EGGS.SandEgg
 	local model = newModel(eggId)
