@@ -15,7 +15,7 @@ YouTube Shorts). Hra má k tomu skvělé předpoklady: je **vizuálně uspokojiv
 2. [Příprava účtů](#2-příprava-účtů)
 3. [Jak natáčet a stříhat](#3-jak-natáčet-a-stříhat)
 4. [Trailer (30 s) – scénář](#4-trailer-30-s--scénář)
-5. [15 nápadů na videa se scénáři](#5-15-nápadů-na-videa-se-scénáři)
+5. [18 nápadů na videa se scénáři](#5-18-nápadů-na-videa-se-scénáři)
 6. [Plán na 30 dní](#6-plán-na-30-dní)
 7. [Popisky a hashtagy](#7-popisky-a-hashtagy)
 8. [Instagram navíc](#8-instagram-navíc)
@@ -100,7 +100,7 @@ Formát „rychlý příběh s titulky“, který funguje u simulátorů. Text j
 
 ---
 
-## 5. 15 nápadů na videa se scénáři
+## 5. 18 nápadů na videa se scénáři
 
 Každé video: **HOOK** (0–2 s) → **obsah** → **výzva k akci (CTA)**.
 
@@ -149,6 +149,15 @@ Každé video: **HOOK** (0–2 s) → **obsah** → **výzva k akci (CTA)**.
 15. **„New code!“**
     Hook: *„FREE coins code in Dune Diggers 👇“* – ukaž zadání kódu v okně CODES.
     Kód napiš do videa i do připnutého komentáře. Vydávej nové kódy za milníky (1K followers, 10K likes…).
+
+### 🥚 Vajíčka a mazlíčci (v1.2 – nejlepší formát pro děti!)
+16. **„Hatching until I get the SUN DRAGON“**
+    Hook: *„2% chance… let's go!“* – zrychlené líhnutí (HATCH 3), počítadlo v rohu, na konci reakce na mýtického draka.
+    Líhnutí je na TikToku jeden z nejsledovanějších Roblox formátů – dělej z toho sérii (Part 1, 2, 3…).
+17. **„Rating every pet in Dune Diggers“**
+    Hook: *„Which pet is the best? 🐰🦊🐉“* – ukaž všech 12 mazlíčků (tier list), nech diváky hlasovat v komentářích.
+18. **„My pet army follows me everywhere“**
+    Hook: *„POV: you have 4 legendary pets“* – záběr zezadu, jak mazlíčci běží a létají za hráčem pouští.
 
 ---
 
@@ -272,6 +281,8 @@ Start with your BARE HANDS and dig your way to the mighty TITAN EXCAVATOR!
 ♻️ Rebirth for x1.5 coins forever
 🏝️ Hang out in OASIS TOWN – shops, VIP lounge & daily rewards
 🏆 Climb the GLOBAL LEADERBOARDS and get your own statue!
+🥚 Hatch EGGS – 12 cute pets follow you and boost your coins (can you get the SUN DRAGON? 🐉)
+📋 New DAILY QUESTS every day!
 
 🎟️ CODES: RELEASE • TIKTOK • INSTA (more on our TikTok!)
 👍 Like & ⭐ Favorite for more updates!

@@ -126,7 +126,7 @@ local function buildMenu()
 	local menu = new("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(14, 150),
-		Size = UDim2.fromOffset(2 * 76 + 10, 4 * 80 + 3 * 10),
+		Size = UDim2.fromOffset(2 * 76 + 10, 5 * 80 + 4 * 10),
 		BackgroundTransparency = 1,
 		Parent = root,
 	})
@@ -138,10 +138,12 @@ local function buildMenu()
 	})
 	local items = {
 		{ "Shop", "🛒", "SHOP", T.Orange },
+		{ "Pets", "🐾", "PETS", Color3.fromRGB(255, 110, 160) },
 		{ "Store", "💎", "STORE", T.Purple },
+		{ "Quests", "📋", "QUESTS", T.Green },
 		{ "Rebirth", "♻️", "REBIRTH", T.Cyan },
+		{ "Daily", "🎁", "DAILY", Color3.fromRGB(70, 190, 120) },
 		{ "Index", "📜", "INDEX", Color3.fromRGB(196, 130, 66) },
-		{ "Daily", "🎁", "DAILY", T.Green },
 		{ "Codes", "🎟️", "CODES", T.Pink },
 		{ "Top", "🏆", "TOP", T.Gold },
 		{ "Camp", "⛺", "CAMP", T.Blue },
@@ -486,6 +488,22 @@ function Hud.update(newState)
 	Hud.setDot("Rebirth", state.Coins >= state.RebirthCost)
 	local clockOffset = (state.ServerTime or os.time()) - os.time()
 	Hud.setDot("Daily", os.time() + clockOffset >= (state.LastDaily or 0) + (state.DailyCooldown or 0))
+	-- splněný úkol čeká na vyzvednutí
+	local questReady = false
+	local quests = state.Quests
+	for _, quest in (type(quests) == "table" and quests.List) or {} do
+		if not quest.Claimed and quest.Progress >= quest.Target then
+			questReady = true
+		end
+	end
+	Hud.setDot("Quests", questReady)
+	-- volné místo pro mazlíčka, který zrovna nechodí s hráčem
+	local owned = 0
+	for _ in state.Pets or {} do
+		owned += 1
+	end
+	local equipped = #(state.EquippedPets or {})
+	Hud.setDot("Pets", equipped < (state.PetSlots or 0) and owned > equipped)
 end
 
 function Hud.setVisible(visible: boolean)

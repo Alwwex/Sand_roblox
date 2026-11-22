@@ -46,8 +46,8 @@ LUAU_RUNNER=./target/release/luaurun python3 tests/run_tests.py
 Očekávaný výsledek:
 
 ```
-VÝSLEDEK: 81 OK, 0 CHYB
-KLIENT: 22 OK, 0 CHYB
+VÝSLEDEK: 111 OK, 0 CHYB
+KLIENT: 37 OK, 0 CHYB
 ```
 
 ## Náhledové obrázky (lobby + UI)
@@ -55,7 +55,8 @@ KLIENT: 22 OK, 0 CHYB
 ```bash
 LUAU_RUNNER=./target/release/luaurun python3 tests/run_tests.py --preview tools/graphics/out/preview
 cd tools/graphics && npm install && npx playwright install chromium
-node render.js out lobby_aerial lobby_ground ui_menu ui_hud ui_shop ui_store ui_top ui_index ui_rebirth ui_settings
+node render.js out lobby_aerial lobby_ground ui_menu ui_hud ui_shop ui_store ui_top ui_index ui_rebirth ui_settings \
+  ui_egg ui_pets ui_quests ui_hatch lobby_hatchery lobby_buyer models_pets models_tools
 ```
 
 Export spustí skutečný kód hry v mocku, uloží party lobby a strom UI do JSON

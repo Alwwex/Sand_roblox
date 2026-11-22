@@ -15,7 +15,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
+local Util = require(ReplicatedStorage.Shared.Util)
 local Build = require(script.Parent.Build)
 
 local W = Config.World
@@ -23,6 +25,7 @@ local HALF = W.CampHalf
 local TOP = W.CampTop
 local FLOOR = TOP + 0.4
 local POOL = 12 -- polovina šířky jezírka
+local POOL_FLOOR = 16 -- dno jezírka (hloubka 14 studs – dost na plavání)
 
 local SAND_LIGHT = Color3.fromRGB(236, 204, 150)
 local SAND_DARK = Color3.fromRGB(214, 170, 112)
@@ -46,7 +49,7 @@ local function buildBase(lobby: Model)
 		{ Vector3.new(0, TOP / 2, -(HALF + POOL) / 2), Vector3.new(HALF * 2, TOP, HALF - POOL) },
 		{ Vector3.new((HALF + POOL) / 2, TOP / 2, 0), Vector3.new(HALF - POOL, TOP, POOL * 2) },
 		{ Vector3.new(-(HALF + POOL) / 2, TOP / 2, 0), Vector3.new(HALF - POOL, TOP, POOL * 2) },
-		{ Vector3.new(0, 12, 0), Vector3.new(POOL * 2, 24, POOL * 2) },
+		{ Vector3.new(0, POOL_FLOOR / 2, 0), Vector3.new(POOL * 2, POOL_FLOOR, POOL * 2) },
 	}
 	for i, b in blocks do
 		P({
@@ -232,8 +235,8 @@ local function buildOasis(lobby: Model)
 		local alongX = d[1] == 0
 		P({
 			Name = "Rim",
-			Size = if alongX then Vector3.new(POOL * 2 + 4, 1.4, 2) else Vector3.new(2, 1.4, POOL * 2),
-			Position = Vector3.new(d[1] * (POOL + 1), FLOOR + 0.5, d[2] * (POOL + 1)),
+			Size = if alongX then Vector3.new(POOL * 2 + 4, 0.8, 2) else Vector3.new(2, 0.8, POOL * 2),
+			Position = Vector3.new(d[1] * (POOL + 1), FLOOR + 0.4, d[2] * (POOL + 1)),
 			Material = Enum.Material.Limestone,
 			Color = Color3.fromRGB(240, 220, 180),
 			Parent = oasis,
@@ -242,9 +245,9 @@ local function buildOasis(lobby: Model)
 	-- ostrůvek se zlatou sochou kopáče
 	Build.cylinder({
 		Name = "StatueIsland",
-		Height = 9.5,
+		Height = 34.7 - 1.2 - POOL_FLOOR,
 		Diameter = 8,
-		Position = Vector3.new(0, 24 + 4.75, 0),
+		Position = Vector3.new(0, POOL_FLOOR + (34.7 - 1.2 - POOL_FLOOR) / 2, 0),
 		Material = Enum.Material.Limestone,
 		Color = Color3.fromRGB(235, 212, 170),
 		Parent = oasis,
@@ -258,18 +261,37 @@ local function buildOasis(lobby: Model)
 		Color = GOLD,
 		Parent = oasis,
 	})
-	local statue = Build.npc(oasis, CFrame.new(0, 34.7, 0) * CFrame.Angles(0, math.rad(180), 0), {
+	local statue = Build.avatarNpc(oasis, CFrame.new(0, 34.7, 0) * CFrame.Angles(0, math.rad(180), 0), {
 		Skin = GOLD,
 		Shirt = GOLD,
 		Pants = GOLD,
 		Hat = GOLD,
 		Material = Enum.Material.Metal,
-	}, nil)
+	}, nil, true)
 	statue.Name = "GoldenDigger"
+	-- zlatá lopata zapíchnutá vedle sochy jako trofej
 	local shovel = ToolFactory.createModel("GoldenShovel")
-	shovel:PivotTo(CFrame.new(2.2, 38, -0.6) * CFrame.Angles(math.rad(-160), 0, math.rad(10)))
-	shovel.Parent = statue
-	Build.sparkles(statue.PrimaryPart :: BasePart, GOLD, 4)
+	shovel:PivotTo(CFrame.new(2.4, 36.4, 0.6) * CFrame.Angles(math.rad(-90), 0, math.rad(12)))
+	shovel.Parent = oasis
+	local sparkleHost = statue.PrimaryPart or statue:FindFirstChildWhichIsA("BasePart")
+	if sparkleHost then
+		Build.sparkles(sparkleHost, GOLD, 4)
+	end
+	-- schody pod vodou (na severní a jižní straně) – z vody se dá vylézt
+	for _, side in { -1, 1 } do
+		for k = 1, 7 do
+			local top = POOL_FLOOR + k * 2 - 0.4
+			local height = top - POOL_FLOOR
+			P({
+				Name = "PoolStep",
+				Size = Vector3.new(8, height, 1.3),
+				Position = Vector3.new(0, POOL_FLOOR + height / 2, side * (POOL - 0.65 - (7 - k) * 1.3)),
+				Material = Enum.Material.Limestone,
+				Color = Color3.fromRGB(225, 205, 165),
+				Parent = oasis,
+			})
+		end
+	end
 	-- lekníny
 	for i = 1, 6 do
 		local angle = i * 1.05
@@ -387,7 +409,7 @@ local function buildStall(
 		Color = Color3.fromRGB(120, 78, 42),
 		Parent = stall,
 	})
-	Build.npc(stall, frame * CFrame.new(0, 0.5, 0.8), npcColors, npcName)
+	Build.avatarNpc(stall, frame * CFrame.new(0, 0.5, 1.2), npcColors, npcName)
 	Build.billboard(counter, title, Color3.fromRGB(255, 236, 170), Vector2.new(14, 3), h + 1.5)
 	return stall, counter, frame
 end
@@ -516,10 +538,27 @@ local function buildMarket(lobby: Model, anchors)
 	})
 	Build.sparkles(pad, Color3.fromRGB(255, 220, 90), 10)
 	Build.billboard(pad, "SELL SAND", Color3.fromRGB(255, 225, 90), Vector2.new(16, 4), 22)
-	Build.npc(sell, CFrame.new(c + Vector3.new(-9.5, 0.6, 0)) * CFrame.Angles(0, math.rad(-90), 0), {
+	-- Výkupce stojí ZA pultem na zadním okraji pavilonu – nepřekáží při prodeji
+	P({
+		Name = "BuyerCounter",
+		Size = Vector3.new(1.6, 3.2, 7),
+		Position = c + Vector3.new(-9.2, 2.2, 0),
+		Material = Enum.Material.WoodPlanks,
+		Color = Color3.fromRGB(176, 120, 66),
+		Parent = sell,
+	})
+	P({
+		Name = "BuyerCounterTop",
+		Size = Vector3.new(2, 0.3, 7.4),
+		Position = c + Vector3.new(-9.2, 3.95, 0),
+		Material = Enum.Material.Wood,
+		Color = Color3.fromRGB(120, 78, 42),
+		Parent = sell,
+	})
+	Build.avatarNpc(sell, CFrame.new(c + Vector3.new(-11, 0.6, 0)) * CFrame.Angles(0, math.rad(-90), 0), {
 		Shirt = Color3.fromRGB(240, 190, 60),
+		Pants = Color3.fromRGB(90, 60, 120),
 		Hat = Color3.fromRGB(150, 40, 40),
-		Beard = Color3.fromRGB(230, 230, 230),
 	}, "Sand Buyer")
 	for i = 1, 5 do
 		Build.ellipsoid({
@@ -1040,7 +1079,7 @@ local function buildNorth(lobby: Model, anchors)
 
 	-- velbloud z kostiček
 	local camel = Build.model("Camel", north)
-	local cc = CFrame.new(28, FLOOR, 48) * CFrame.Angles(0, math.rad(200), 0)
+	local cc = CFrame.new(-44, FLOOR, 50) * CFrame.Angles(0, math.rad(160), 0)
 	local tan = Color3.fromRGB(196, 150, 96)
 	for _, leg in { { -1.2, -2.2 }, { 1.2, -2.2 }, { -1.2, 2.2 }, { 1.2, 2.2 } } do
 		P({
@@ -1085,9 +1124,85 @@ local function buildNorth(lobby: Model, anchors)
 		Parent = camel,
 	})
 	Build.carpet(camel, (cc * CFrame.new(0, 6.32, 0.4)).Position, Vector2.new(3.4, 3.6), Color3.fromRGB(180, 40, 60))
-	Build.crate(north, Vector3.new(34, FLOOR, 44), 2.6, 0.4)
-	Build.barrel(north, Vector3.new(22, FLOOR, 52))
+	Build.crate(north, Vector3.new(-37, FLOOR, 46), 2.6, 0.4)
+	Build.barrel(north, Vector3.new(-50, FLOOR, 54))
 	Build.pot(north, Vector3.new(-14, FLOOR, 54), Color3.fromRGB(80, 140, 170))
+end
+
+---------------------------------------------------------------------
+-- Hatchery: stánky s vajíčky (severovýchod)
+---------------------------------------------------------------------
+
+local function buildHatchery(lobby: Model, anchors)
+	local hatchery = Build.model("Hatchery", lobby)
+	anchors.EggStands = {}
+	local ringColors = { Color3.fromRGB(240, 190, 110), Color3.fromRGB(80, 210, 220), GOLD }
+	for i, egg in Config.Eggs do
+		local base = Vector3.new(1 + i * 13, FLOOR, 50)
+		local pedestal = Build.cylinder({
+			Name = "EggPedestal",
+			Height = 2.4,
+			Diameter = 6.5,
+			Position = base + Vector3.new(0, 1.2, 0),
+			Material = Enum.Material.Marble,
+			Color = Color3.fromRGB(245, 235, 215),
+			Parent = hatchery,
+		})
+		Build.cylinder({
+			Name = "EggRing",
+			Height = 0.3,
+			Diameter = 6.8,
+			Position = base + Vector3.new(0, 2.4, 0),
+			Material = Enum.Material.Neon,
+			Color = ringColors[i] or GOLD,
+			Parent = hatchery,
+		})
+		Build.cylinder({
+			Name = "Nest",
+			Height = 0.6,
+			Diameter = 4.2,
+			Position = base + Vector3.new(0, 2.7, 0),
+			Material = Enum.Material.Fabric,
+			Color = Color3.fromRGB(196, 150, 80),
+			Parent = hatchery,
+		})
+		local eggModel = PetFactory.egg(egg.Id, 1.35)
+		eggModel.Name = "HatcheryEgg"
+		eggModel:PivotTo(CFrame.new(base + Vector3.new(0, 2.8, 0)))
+		eggModel.Parent = hatchery
+		Build.light(pedestal, ringColors[i] or GOLD, 12, 0.8)
+		Build.billboard(pedestal, string.upper(egg.Name), ringColors[i] or GOLD, Vector2.new(9, 2.2), 8.5)
+		local _, priceLabel = Build.billboard(
+			pedestal,
+			"💰 " .. Util.formatNumber(egg.Price),
+			Color3.new(1, 1, 1),
+			Vector2.new(6, 1.5),
+			6.6,
+			Enum.Font.FredokaOne
+		)
+		priceLabel.Parent.Name = "Price"
+		anchors.EggStands[egg.Id] = pedestal
+	end
+	-- cedule nad Hatchery
+	local sign = P({
+		Name = "HatcherySign",
+		Size = Vector3.new(26, 3.2, 0.6),
+		CFrame = CFrame.lookAt(Vector3.new(27, FLOOR + 12, 55.5), Vector3.new(27, FLOOR + 12, 0)),
+		Material = Enum.Material.WoodPlanks,
+		Color = Color3.fromRGB(120, 70, 140),
+		Parent = hatchery,
+	})
+	Build.sign(sign, "EGG HATCHERY", Color3.fromRGB(255, 225, 120), { Enum.NormalId.Front })
+	for _, x in { 15, 39 } do
+		P({
+			Name = "HatcherySignPost",
+			Size = Vector3.new(1, 12, 1),
+			Position = Vector3.new(x, FLOOR + 6, 55.8),
+			Material = Enum.Material.Wood,
+			Color = WOOD,
+			Parent = hatchery,
+		})
+	end
 end
 
 local function buildDecor(lobby: Model)
@@ -1127,7 +1242,13 @@ end
 
 -- Voda v oáze (Terrain). Volá se znovu po každém přegenerování pouště.
 function LobbyBuilder.fillWater()
-	workspace.Terrain:FillBlock(CFrame.new(0, 27, 0), Vector3.new(POOL * 2, 6, POOL * 2), Enum.Material.Water)
+	-- voda od dna (POOL_FLOOR) po hladinu ve výšce TOP (horní voxel napůl = hladina přesně u okraje)
+	local depth = TOP - POOL_FLOOR
+	workspace.Terrain:FillBlock(
+		CFrame.new(0, POOL_FLOOR + depth / 2, 0),
+		Vector3.new(POOL * 2, depth, POOL * 2),
+		Enum.Material.Water
+	)
 end
 
 function LobbyBuilder.build(parent: Instance)
@@ -1147,6 +1268,7 @@ function LobbyBuilder.build(parent: Instance)
 	buildPassPlaza(lobby, anchors)
 	buildVipLounge(lobby, anchors)
 	buildNorth(lobby, anchors)
+	buildHatchery(lobby, anchors)
 	buildDecor(lobby)
 
 	-- Spawny kolem oázy

@@ -19,6 +19,8 @@ local MonetizationService = require(Services.MonetizationService)
 local SandstormService = require(Services.SandstormService)
 local RewardService = require(Services.RewardService)
 local LeaderboardService = require(Services.LeaderboardService)
+local QuestService = require(Services.QuestService)
+local PetService = require(Services.PetService)
 
 -- Postavy spawnujeme až když je svět hotový
 Players.CharacterAutoLoads = false
@@ -35,6 +37,8 @@ ShopService.init()
 DigService.init()
 RewardService.init()
 LeaderboardService.init()
+QuestService.init()
+PetService.init()
 WorldService.setReady(true)
 SandstormService.start()
 print(("[Dune Diggers] Svět hotový za %.1f s"):format(os.clock() - started))
@@ -91,6 +95,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 	MonetizationService.loadPasses(player)
+	QuestService.ensure(player)
 	DataService.syncNow(player)
 
 	while not WorldService.isReady() and player.Parent do

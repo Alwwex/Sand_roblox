@@ -263,3 +263,99 @@ for _, name in { "Shop", "Store", "Top", "Index", "Rebirth", "Settings" } do
 	emit("ui_" .. string.lower(name), serializeGui(gui))
 	UI.close()
 end
+
+---------------------------------------------------------------------
+-- 3) Vajíčka, mazlíčci, úkoly (v1.2)
+---------------------------------------------------------------------
+session.Data.Pets = {
+	p1 = "SandBunny",
+	p2 = "FennecFox",
+	p3 = "ScarabBug",
+	p4 = "DesertMouse",
+	p5 = "LilyFrog",
+	p6 = "OasisTurtle",
+	p7 = "PalmParrot",
+	p8 = "SandBunny",
+	p9 = "WaterSpirit",
+	p10 = "MummyCat",
+}
+session.Data.EquippedPets = { "p9", "p10", "p7" }
+session.Data.Hatched = 10
+local today = os.time() // 86400
+session.Data.Quests = {
+	Day = today,
+	List = {
+		{ Id = "Dig", Target = 3000, Progress = 1840, Claimed = false, Tier = 2 },
+		{ Id = "Hatch", Target = 3, Progress = 3, Claimed = false, Tier = 2 },
+		{ Id = "Chests", Target = 4, Progress = 4, Claimed = true, Tier = 2 },
+	},
+}
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+emit("ui_hud2", serializeGui(gui))
+for _, name in { "Egg", "Pets", "Quests" } do
+	UI.open(name)
+	Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+	emit("ui_" .. string.lower(name), serializeGui(gui))
+	UI.close()
+end
+local HatchFx = require(tree.Client.HatchFx)
+HatchFx.play(gui, {
+	{ PetId = "ScarabBug", New = true },
+	{ PetId = "FennecFox", New = true },
+	{ PetId = "SandBunny", New = false },
+}, "SandEgg", function() end)
+mock.advance(1.6)
+emit("ui_hatch", serializeGui(gui))
+mock.advance(6)
+
+---------------------------------------------------------------------
+-- 4) 3D modely: mazlíčci, vajíčka, nástroje
+---------------------------------------------------------------------
+local Config = require(tree.Shared.Config)
+local PetFactory = require(tree.Shared.PetFactory)
+local ToolFactory = require(tree.Shared.ToolFactory)
+local function modelParts(model, list)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and (d.Transparency or 0) < 1 then
+			table.insert(list, partInfo(d))
+		end
+	end
+end
+local petParts = {}
+for i, pet in Config.Pets do
+	local model = PetFactory.build(pet.Id)
+	local column = (i - 1) % 6
+	local row = (i - 1) // 6
+	local lift = if PetFactory.isFlying(pet.Id) then 1.2 else 0
+	model:PivotTo(CFrame.new((column - 2.5) * 5.2, lift, row * 6))
+	modelParts(model, petParts)
+end
+for i, egg in Config.Eggs do
+	local model = PetFactory.egg(egg.Id, 1.2)
+	model:PivotTo(CFrame.new((i - 2) * 6, 0, 13))
+	modelParts(model, petParts)
+end
+emit("models_pets", { parts = petParts })
+local toolParts = {}
+local x = -14
+for _, tool in Config.Tools do
+	if tool.Id ~= "Hands" then
+		local model = ToolFactory.createModel(tool.Id)
+		-- nástroje stojí "na rukojeti" vedle sebe
+		model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(math.rad(90), 0, 0))
+		local minX, maxX, minY = math.huge, -math.huge, math.huge
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then
+				local r = math.max(d.Size.X, d.Size.Y, d.Size.Z) / 2
+				minX = math.min(minX, d.Position.X - r)
+				maxX = math.max(maxX, d.Position.X + r)
+				minY = math.min(minY, d.Position.Y - r)
+			end
+		end
+		x += (maxX - minX) / 2 + 0.8
+		model:PivotTo(CFrame.new(x - (minX + maxX) / 2, 0.2 - minY, 0) * CFrame.Angles(math.rad(90), 0, 0))
+		x += (maxX - minX) / 2 + 0.8
+		modelParts(model, toolParts)
+	end
+end
+emit("models_tools", { parts = toolParts })

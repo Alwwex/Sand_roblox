@@ -13,7 +13,7 @@
 local Config = {}
 
 Config.GameName = "Dune Diggers"
-Config.Version = "1.1"
+Config.Version = "1.2"
 Config.Changelog = {
 	"🏝️ NEW lobby: Oasis Town",
 	"🏆 Global leaderboards + #1 statue",
@@ -21,6 +21,9 @@ Config.Changelog = {
 	"🎁 Daily rewards & VIP lounge",
 	"✨ Brand new UI & main menu",
 	"🎒 Custom item selector (keys 1-9)",
+	"🥚 NEW: Eggs & pets that follow you!",
+	"📋 NEW: Daily quests",
+	"🏊 Fixed swimming in the oasis",
 	"🧱 Fixed see-through sand",
 }
 
@@ -227,6 +230,62 @@ Config.Artifacts = {
 }
 
 ---------------------------------------------------------------------
+-- MAZLÍČCI A VAJÍČKA (Hatchery v lobby)
+-- Coins = bonus k mincím (0.1 = +10 %). Mazlíčci chodí za hráčem.
+---------------------------------------------------------------------
+Config.Pets = {
+	{ Id = "SandBunny", Name = "Sand Bunny", Rarity = "Common", Coins = 0.05 },
+	{ Id = "DesertMouse", Name = "Desert Mouse", Rarity = "Common", Coins = 0.06 },
+	{ Id = "ScarabBug", Name = "Scarab Bug", Rarity = "Rare", Coins = 0.12 },
+	{ Id = "FennecFox", Name = "Fennec Fox", Rarity = "Epic", Coins = 0.25 },
+	{ Id = "LilyFrog", Name = "Lily Frog", Rarity = "Common", Coins = 0.1 },
+	{ Id = "OasisTurtle", Name = "Oasis Turtle", Rarity = "Rare", Coins = 0.2 },
+	{ Id = "PalmParrot", Name = "Palm Parrot", Rarity = "Epic", Coins = 0.4 },
+	{ Id = "WaterSpirit", Name = "Water Spirit", Rarity = "Legendary", Coins = 0.8 },
+	{ Id = "MummyCat", Name = "Mummy Cat", Rarity = "Rare", Coins = 0.5 },
+	{ Id = "GoldenScarab", Name = "Golden Scarab", Rarity = "Epic", Coins = 0.9 },
+	{ Id = "SphinxCat", Name = "Sphinx Cat", Rarity = "Legendary", Coins = 1.6 },
+	{ Id = "SunDragon", Name = "Sun Dragon", Rarity = "Mythic", Coins = 4 },
+}
+
+-- Pets = { {Id mazlíčka, váha}, ... } – šance se v UI zobrazují v %
+Config.Eggs = {
+	{
+		Id = "SandEgg",
+		Name = "Sand Egg",
+		Price = 400,
+		Pets = { { "SandBunny", 45 }, { "DesertMouse", 35 }, { "ScarabBug", 17 }, { "FennecFox", 3 } },
+	},
+	{
+		Id = "OasisEgg",
+		Name = "Oasis Egg",
+		Price = 15000,
+		Pets = { { "LilyFrog", 45 }, { "OasisTurtle", 35 }, { "PalmParrot", 17 }, { "WaterSpirit", 3 } },
+	},
+	{
+		Id = "PharaohEgg",
+		Name = "Pharaoh Egg",
+		Price = 300000,
+		Pets = { { "MummyCat", 50 }, { "GoldenScarab", 33 }, { "SphinxCat", 15 }, { "SunDragon", 2 } },
+	},
+}
+
+Config.PetSlots = 3 -- kolik mazlíčků může chodit s hráčem (VIP +1)
+Config.MaxPets = 60 -- maximum v inventáři
+
+---------------------------------------------------------------------
+-- DENNÍ ÚKOLY (3 náhodné každý den)
+-- Targets = cíl podle pokroku hráče (začátečník / střední / pokročilý)
+---------------------------------------------------------------------
+Config.Quests = {
+	{ Id = "Dig", Text = "Dig %s sand", Icon = "⛏️", Targets = { 300, 3000, 30000 }, Reward = 250 },
+	{ Id = "Chests", Text = "Open %s chests", Icon = "🎁", Targets = { 2, 4, 6 }, Reward = 400 },
+	{ Id = "Sell", Text = "Sell sand %s times", Icon = "💰", Targets = { 3, 6, 10 }, Reward = 200 },
+	{ Id = "Hatch", Text = "Hatch %s eggs", Icon = "🥚", Targets = { 1, 3, 5 }, Reward = 350 },
+	{ Id = "Coins", Text = "Earn %s coins", Icon = "🪙", Targets = { 1500, 20000, 200000 }, Reward = 500 },
+}
+
+---------------------------------------------------------------------
 -- PÍSEČNÁ BOUŘE (znovu zasype poušť)
 ---------------------------------------------------------------------
 Config.Sandstorm = {
@@ -387,6 +446,23 @@ Config.BackpacksById = {}
 for index, backpack in Config.Backpacks do
 	backpack.Index = index
 	Config.BackpacksById[backpack.Id] = backpack
+end
+
+Config.PetsById = {}
+for index, pet in Config.Pets do
+	pet.Index = index
+	Config.PetsById[pet.Id] = pet
+end
+
+Config.EggsById = {}
+for index, egg in Config.Eggs do
+	egg.Index = index
+	Config.EggsById[egg.Id] = egg
+end
+
+Config.QuestsById = {}
+for _, quest in Config.Quests do
+	Config.QuestsById[quest.Id] = quest
 end
 
 Config.ArtifactsById = {}

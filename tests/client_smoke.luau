@@ -103,6 +103,87 @@ ccheck("LB přepne na předchozí (Spoon)", session.Data.EquippedTool == "Spoon"
 UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.Two, UserInputType = Enum.UserInputType.Keyboard }, true)
 ccheck("klávesa v chatu se ignoruje", session.Data.EquippedTool == "Spoon")
 
+-- vajíčka, mazlíčci, úkoly
+local function findButton(root, prefix)
+	for _, inst in root:GetDescendants() do
+		if inst.ClassName == "TextButton" and string.sub(inst.Text, 1, #prefix) == prefix then
+			return inst
+		end
+	end
+	return nil
+end
+session.Data.Coins = 100000
+session.Data.Pets = {}
+session.Data.EquippedPets = {}
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+for _, name in { "Egg", "Egg:OasisEgg", "Egg:SandEgg", "Pets", "Quests" } do
+	local okOpen, errOpen = pcall(UI.open, name)
+	ccheck("okno " .. name, okOpen, errOpen)
+	Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+end
+local petsWindow = gui:FindFirstChild("PetsWindow")
+ccheck("prázdný inventář ukazuje nápovědu", petsWindow and findButton(petsWindow, "🥚 SEE EGGS") ~= nil)
+UI.open("Egg:SandEgg")
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+local eggWindow = gui:FindFirstChild("EggWindow")
+local hatchButton = eggWindow and findButton(eggWindow, "HATCH 3")
+ccheck("tlačítko HATCH 3", hatchButton ~= nil)
+local hatchedBefore = session.Data.Hatched
+ok, err = pcall(function()
+	hatchButton.Activated:Fire()
+end)
+ccheck("líhnutí z okna", ok and session.Data.Hatched == hatchedBefore + 3, err or session.Data.Hatched)
+ccheck("animace líhnutí", gui:FindFirstChild("HatchFx") ~= nil)
+ok, err = pcall(function()
+	mock.advance(6)
+end)
+ccheck("animace doběhla a zmizela", ok and gui:FindFirstChild("HatchFx") == nil, err)
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+UI.open("Pets")
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+local cells = 0
+for _, inst in petsWindow:GetDescendants() do
+	if inst.ClassName == "Frame" and session.Data.Pets[inst.Name] then
+		cells += 1
+	end
+end
+ccheck("inventář ukazuje 3 mazlíčky", cells == 3, cells)
+-- mazlíčci chodí za hráčem (klient je posouvá)
+local RunService = mock.services.RunService
+local myPets = workspace.Pets:FindFirstChild(tostring(localPlayer.UserId))
+ok, err = pcall(function()
+	for _ = 1, 30 do
+		RunService.RenderStepped:Fire(1 / 30)
+	end
+end)
+ccheck("PetFollow běží", ok, err)
+local root = localPlayer.Character.HumanoidRootPart
+local near = myPets and #myPets:GetChildren() == 3
+for _, model in (myPets and myPets:GetChildren()) or {} do
+	local distance = (model:GetPivot().Position - root.Position).Magnitude
+	near = near and distance < 12
+end
+ccheck("mazlíčci jsou u hráče", near)
+-- úkol připravený k vyzvednutí -> červená tečka a tlačítko CLAIM!
+session.Data.Quests.List[1].Progress = session.Data.Quests.List[1].Target
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+local questDot
+for _, inst in gui:GetDescendants() do
+	if inst.Name == "Quests" and inst:FindFirstChild("Dot") then
+		questDot = inst.Dot
+	end
+end
+ccheck("červená tečka u QUESTS", questDot and questDot.Visible == true)
+UI.open("Quests")
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+local claim = findButton(gui:FindFirstChild("QuestsWindow"), "CLAIM!")
+local coinsBefore = session.Data.Coins
+ok, err = pcall(function()
+	claim.Activated:Fire()
+end)
+ccheck("vyzvednutí úkolu z okna", ok and session.Data.Coins > coinsBefore, err)
+UI.close()
+
 -- tlačítka v obchodě: projdeme všechna TextButton a "klikneme"
 local clicked = 0
 ok, err = pcall(function()

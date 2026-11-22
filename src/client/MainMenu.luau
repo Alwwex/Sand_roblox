@@ -76,48 +76,66 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 		Parent = shade,
 	})
 
-	local logo = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 30),
-		Size = UDim2.fromOffset(900, 300),
+	-- Všechno v jednom sloupci (logo, podtitul, tlačítka, tip) – nic se nepřekrývá
+	-- a sloupec se zmenší, když je obrazovka nízká (mobil).
+	local column = new("Frame", {
+		Name = "Column",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(900, 640),
 		BackgroundTransparency = 1,
-		Rotation = -3,
 		ZIndex = 61,
 		Parent = root,
 	})
-	logoWord(logo, "DUNE", 0, 120, Color3.fromRGB(255, 248, 220), Color3.fromRGB(240, 170, 80))
-	logoWord(logo, "DIGGERS", 110, 170, Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 120, 20))
+	new("UIListLayout", {
+		Padding = UDim.new(0, 10),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = column,
+	})
+	local fit = new("UIScale", { Parent = column })
+	local function refit()
+		local screenScale = 1
+		local guiScale = gui:FindFirstChildOfClass("UIScale")
+		if guiScale then
+			screenScale = guiScale.Scale
+		end
+		local available = root.AbsoluteSize and root.AbsoluteSize.Y / math.max(screenScale, 0.01) or 720
+		fit.Scale = math.clamp((available - 20) / 640, 0.55, 1)
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+	refit()
+
+	local logoSlot = new(
+		"Frame",
+		{ Size = UDim2.fromOffset(900, 250), BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 61, Parent = column }
+	)
+	local logo = new("Frame", {
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromOffset(900, 250),
+		BackgroundTransparency = 1,
+		Rotation = -3,
+		ZIndex = 61,
+		Parent = logoSlot,
+	})
+	logoWord(logo, "DUNE", 0, 100, Color3.fromRGB(255, 248, 220), Color3.fromRGB(240, 170, 80))
+	logoWord(logo, "DIGGERS", 92, 150, Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 120, 20))
 	TweenService:Create(
 		logo,
 		TweenInfo.new(2.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Position = UDim2.new(0.5, 0, 0, 42) }
+		{ Position = UDim2.fromOffset(0, 8) }
 	):Play()
 	UIKit.text({
 		Text = "Dig up the ENTIRE desert!",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 330),
-		Size = UDim2.fromOffset(700, 44),
+		Size = UDim2.fromOffset(700, 40),
+		LayoutOrder = 2,
 		Font = F.Body,
 		Stroke = 3,
 		ZIndex = 62,
-		Parent = root,
+		Parent = column,
 	})
-
-	local buttons = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 400),
-		Size = UDim2.fromOffset(360, 260),
-		BackgroundTransparency = 1,
-		ZIndex = 62,
-		Parent = root,
-	})
-	new("UIListLayout", {
-		Padding = UDim.new(0, 14),
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Parent = buttons,
-	})
-
+	local buttons = column
 	local finished = false
 	local orbit: RBXScriptConnection? = nil
 	local playHolder, playFace
@@ -157,19 +175,19 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 	end
 
 	playHolder, playFace = UIKit.button({
-		Size = UDim2.fromOffset(340, 100),
+		Size = UDim2.fromOffset(340, 96),
 		Color = T.Green,
 		Text = "PLAY!",
-		LayoutOrder = 1,
+		LayoutOrder = 3,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = play,
 	})
 	UIKit.button({
-		Size = UDim2.fromOffset(300, 66),
+		Size = UDim2.fromOffset(300, 64),
 		Color = T.Blue,
 		Text = "🆕 UPDATES",
-		LayoutOrder = 2,
+		LayoutOrder = 4,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = function()
@@ -182,10 +200,10 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 	local _, musicFace
 	local musicHolder
 	musicHolder, musicFace = UIKit.button({
-		Size = UDim2.fromOffset(300, 66),
+		Size = UDim2.fromOffset(300, 64),
 		Color = Color3.fromRGB(90, 120, 230),
 		Text = "🎵 MUSIC: ON",
-		LayoutOrder = 3,
+		LayoutOrder = 5,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = function()
@@ -236,13 +254,12 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 
 	local tip = UIKit.text({
 		Text = "TIP: " .. TIPS[1],
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -24),
-		Size = UDim2.fromOffset(900, 34),
+		Size = UDim2.fromOffset(860, 34),
+		LayoutOrder = 6,
 		Font = F.Body,
 		Stroke = 3,
 		ZIndex = 62,
-		Parent = root,
+		Parent = column,
 	})
 	UIKit.text({
 		Text = "v" .. Config.Version,

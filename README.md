@@ -9,7 +9,29 @@ a všechno znovu zasype – s novými poklady.
 > žánrem „kopej a vylepšuj" z videa, ale nekopíruje cizí hru – to je důležité,
 > aby ti ji Roblox nesmazal a abys ji mohl/a v klidu propagovat.
 
-## 🆕 Verze 1.1 – co je nového
+## 🆕 Verze 1.2 – vajíčka, mazlíčci a úkoly
+
+| | |
+|---|---|
+| ![Mazlíčci a vajíčka](docs/preview/12_mazlicci.jpg) | ![Líhnutí](docs/preview/13_lihnuti.jpg) |
+| ![Okno vajíček](docs/preview/14_vajicka.jpg) | ![Moji mazlíčci](docs/preview/15_moji_mazlicci.jpg) |
+| ![Denní úkoly](docs/preview/16_ukoly.jpg) | ![Egg Hatchery v lobby](docs/preview/17_hatchery.jpg) |
+
+- 🥚 **Vajíčka a mazlíčci**: 3 vajíčka (Sand, Oasis, Pharaoh), **12 roztomilých mazlíčků** v 5 raritách
+  (až po mýtického **Sun Dragona** 🐉). Mazlíčci **chodí (nebo létají) za tebou** a dávají **bonus k mincím**.
+  Líhnutí s animací (třesení, záblesk, konfety, „NEW!"), líhnutí po 1 nebo po 3, šance jsou vidět předem.
+- 🐾 **Okno MY PETS**: nasazení/sundání, **EQUIP BEST**, mazání, 3 místa (VIP 4)
+- 📋 **Denní úkoly**: každý den 3 nové (kopej, otevři truhly, prodej, vylíhni, vydělej) – obtížnost podle pokroku hráče
+- 🏛️ **EGG HATCHERY** v lobby – 3 podstavce s točícími se vajíčky
+- 🛠️ **Nové 3D modely nástrojů** (lžíce, lopatka, lopata, zlatá lopata, vysavač s hadicí, foukač s vrtulí, bagr se zuby),
+  **NPC jsou skutečné Roblox avatary** (mávají), socha v oáze je zlatý avatar, truhly mají kování a drahokamy
+- 🏪 **Sand Buyer** stojí za pultem a už nepřekáží na prodejní ploše
+- 🏊 **Opravené plavání** v oáze (hlubší voda, schody, nižší okraj)
+- 🎛️ Hlavní menu: tip už nepřekrývá tlačítka (vše se samo přizpůsobí výšce obrazovky)
+
+![Nové modely nástrojů](docs/preview/18_nastroje.jpg)
+
+## Verze 1.1
 
 | | |
 |---|---|
@@ -49,6 +71,8 @@ a všechno znovu zasype – s novými poklady.
 | 🏆 Žebříčky | Globální (OrderedDataStore) + socha nejlepšího hráče |
 | 🎵 Hudba | Originální, mění se podle místa (lobby / poušť / bouře) |
 | 🎁 Denní odměny | Denní truhla pro všechny, VIP truhla pro VIP |
+| 🥚 Vajíčka & mazlíčci | 3 vajíčka, 12 mazlíčků, 5 rarit, bonus k mincím, mazlíčci chodí za hráčem |
+| 📋 Denní úkoly | 3 úkoly denně s odměnou, obtížnost podle pokroku |
 | 📱 Mobil/PC/konzole | UI se samo škáluje, kopání dotykem, myší i ovladačem |
 
 ## Rychlý start (5 minut)
@@ -77,6 +101,7 @@ src/
     Remotes.luau         komunikace server <-> klient
     Util.luau            formátování čísel a času
     ToolFactory.luau     modely nástrojů (do ruky, do lobby i do náhledů v obchodě)
+    PetFactory.luau      modely mazlíčků a vajíček
   server/              -> ServerScriptService/Server
     Main.server.luau     spouští hru
     Services/
@@ -85,6 +110,8 @@ src/
       Build              pomocné funkce pro stavění z partů
       LeaderboardService globální žebříčky + socha hráče č. 1
       RewardService      denní odměny, VIP salonek, gamepass stánky
+      PetService         vajíčka, líhnutí, mazlíčci
+      QuestService       denní úkoly
       DigService         ověření a zpracování kopání (proti hackům)
       TreasureService    truhly, artefakty, relikvie
       ShopService        prodej, obchod, rebirth, kódy, teleport
@@ -98,7 +125,9 @@ src/
     UIKit.luau           stavebnice UI (3D tlačítka, panely, posuvníky…)
     Hud.luau             mince, menu, banner pouště, batoh, notifikace
     Hotbar.luau          vlastní výběr nástrojů (místo Roblox hotbaru)
-    Windows.luau         okna: Shop, Store, Rebirth, Index, Codes, Top, Settings
+    Windows.luau         okna: Shop, Store, Rebirth, Index, Codes, Top, Settings, Egg, Pets, Quests
+    HatchFx.luau         animace líhnutí vajíčka
+    PetFollow.luau       mazlíčci chodí za hráči
     MainMenu.luau        úvodní obrazovka s průletem kamery
     Audio.luau           hudba, ambience, zvukové efekty
     DigController.luau   ovládání kopání

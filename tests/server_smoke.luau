@@ -281,6 +281,112 @@ check(
 		and session.Data.Settings.LowGfx == false
 )
 
+print("== Vajíčka a mazlíčci ==")
+local Stats = require(tree.Services.Stats)
+local QuestService = require(tree.Services.QuestService)
+local quests = QuestService.ensure(player)
+check("3 denní úkoly", quests and #quests.List == 3, quests and #quests.List)
+local again = QuestService.ensure(player)
+check("úkoly se ve stejný den nemění", again.List[1].Id == quests.List[1].Id)
+-- pevné úkoly pro test (jinak jsou náhodné podle dne)
+session.Data.Quests = {
+	Day = quests.Day,
+	List = {
+		{ Id = "Hatch", Target = 1, Progress = 0, Claimed = false, Tier = 1 },
+		{ Id = "Coins", Target = 100, Progress = 0, Claimed = false, Tier = 2 },
+		{ Id = "Dig", Target = 300, Progress = 0, Claimed = false, Tier = 1 },
+	},
+}
+session.Data.Coins = 100
+ok, msg = Remotes.HatchEgg.OnServerInvoke(player, "SandEgg", 1)
+check("vajíčko bez peněz nejde", not ok, msg)
+ok = Remotes.HatchEgg.OnServerInvoke(player, "FakeEgg", 1)
+check("neznámé vajíčko nejde", not ok)
+session.Data.Coins = 10000
+local results
+ok, msg, results = Remotes.HatchEgg.OnServerInvoke(player, "SandEgg", 3)
+check("vylíhnutí 3 vajíček", ok and type(results) == "table" and #results == 3, msg)
+check("zaplaceno 3x", session.Data.Coins == 10000 - 3 * Config.EggsById.SandEgg.Price, session.Data.Coins)
+local fromEgg = true
+for _, result in results or {} do
+	local found = false
+	for _, entry in Config.EggsById.SandEgg.Pets do
+		found = found or entry[1] == result.PetId
+	end
+	fromEgg = fromEgg and found and session.Data.Pets[result.Uid] == result.PetId
+end
+check("mazlíčci odpovídají vajíčku", fromEgg)
+check("první mazlíček je NEW", results and results[1].New == true)
+local slots = Stats.petSlots(session)
+check("VIP má 4 místa", slots == Config.PetSlots + 1, slots)
+check("noví mazlíčci se nasadí", #session.Data.EquippedPets == 3, #session.Data.EquippedPets)
+local petFolder = workspace:FindFirstChild("Pets") and workspace.Pets:FindFirstChild(tostring(player.UserId))
+check("modely mazlíčků ve světě", petFolder and #petFolder:GetChildren() == 3)
+local payload = DataService.buildPayload(session)
+check("bonus mazlíčků v datech", payload.PetBonus > 0 and payload.PetSlots == slots, payload.PetBonus)
+check("bonus zvyšuje násobič mincí", Stats.coinMultiplier(session) > 1)
+check("úkol Hatch splněn", session.Data.Quests.List[1].Progress == 1)
+
+local firstUid = results[1].Uid
+ok = Remotes.DeletePet.OnServerInvoke(player, firstUid)
+check("nasazeného mazlíčka nejde smazat", not ok)
+ok = Remotes.EquipPet.OnServerInvoke(player, firstUid)
+check("sundání mazlíčka", ok and table.find(session.Data.EquippedPets, firstUid) == nil)
+check("model zmizel", #petFolder:GetChildren() == 2)
+ok = Remotes.DeletePet.OnServerInvoke(player, firstUid)
+check("smazání mazlíčka", ok and session.Data.Pets[firstUid] == nil)
+ok = Remotes.EquipPet.OnServerInvoke(player, "p9999")
+check("cizího mazlíčka nejde nasadit", not ok)
+
+session.Data.Coins = 1e8
+ok = Remotes.HatchEgg.OnServerInvoke(player, "PharaohEgg", 3)
+check("faraonské vajíčko", ok)
+ok = Remotes.EquipBestPets.OnServerInvoke(player)
+local worstEquipped, bestFree = math.huge, 0
+for uid, petId in session.Data.Pets do
+	local value = Config.PetsById[petId].Coins
+	if table.find(session.Data.EquippedPets, uid) then
+		worstEquipped = math.min(worstEquipped, value)
+	else
+		bestFree = math.max(bestFree, value)
+	end
+end
+check("EQUIP BEST vybere nejlepší", ok and #session.Data.EquippedPets == slots and worstEquipped >= bestFree)
+local extra
+for uid in session.Data.Pets do
+	if not table.find(session.Data.EquippedPets, uid) then
+		extra = uid
+	end
+end
+ok = Remotes.EquipPet.OnServerInvoke(player, extra)
+check("víc mazlíčků než míst nejde", not ok)
+for i = 1, Config.MaxPets do
+	session.Data.Pets["x" .. i] = "SandBunny"
+end
+ok, msg = Remotes.HatchEgg.OnServerInvoke(player, "SandEgg", 1)
+check("plný inventář mazlíčků", not ok, msg)
+for i = 1, Config.MaxPets do
+	session.Data.Pets["x" .. i] = nil
+end
+
+print("== Denní úkoly ==")
+ok = Remotes.ClaimQuest.OnServerInvoke(player, 3)
+check("nesplněný úkol nejde vybrat", not ok)
+coins = session.Data.Coins
+ok, msg = Remotes.ClaimQuest.OnServerInvoke(player, 1)
+local expected = Config.QuestsById.Hatch.Reward * 1 * (session.Data.Rebirths + 1)
+check("výběr odměny za úkol", ok and session.Data.Coins - coins >= expected, msg)
+ok = Remotes.ClaimQuest.OnServerInvoke(player, 1)
+check("úkol jen jednou", not ok)
+ok = Remotes.ClaimQuest.OnServerInvoke(player, "1")
+check("špatný index", not ok)
+check("odměna za úkol započítána do Coins úkolu", session.Data.Quests.List[2].Progress == 100)
+ok = Remotes.ClaimQuest.OnServerInvoke(player, 2)
+check("úkol Coins vyzvednut", ok)
+session.Data.Quests.Day = 0
+QuestService.ensure(player)
+check("nový den = nové úkoly", session.Data.Quests.Day ~= 0 and session.Data.Quests.List[1].Claimed == false)
+
 print("== Ukládání ==")
 mock.services.Players.PlayerRemoving:Fire(player)
 local stored = mock.stores["DuneDiggers_PlayerData_v1"]["Player_101"]

@@ -6,11 +6,11 @@
 			<string name="Name">Workspace</string>
 		</Properties>
 	</Item>
-	<Item class="ReplicatedStorage" referent="RBX00000007">
+	<Item class="ReplicatedStorage" referent="RBX00000008">
 		<Properties>
 			<string name="Name">ReplicatedStorage</string>
 		</Properties>
-		<Item class="Folder" referent="RBX00000006">
+		<Item class="Folder" referent="RBX00000007">
 			<Properties>
 				<string name="Name">Shared</string>
 			</Properties>
@@ -32,7 +32,7 @@
 local Config = {}
 
 Config.GameName = "Dune Diggers"
-Config.Version = "1.1"
+Config.Version = "1.2"
 Config.Changelog = {
 	"🏝️ NEW lobby: Oasis Town",
 	"🏆 Global leaderboards + #1 statue",
@@ -40,6 +40,9 @@ Config.Changelog = {
 	"🎁 Daily rewards & VIP lounge",
 	"✨ Brand new UI & main menu",
 	"🎒 Custom item selector (keys 1-9)",
+	"🥚 NEW: Eggs & pets that follow you!",
+	"📋 NEW: Daily quests",
+	"🏊 Fixed swimming in the oasis",
 	"🧱 Fixed see-through sand",
 }
 
@@ -246,6 +249,62 @@ Config.Artifacts = {
 }
 
 ---------------------------------------------------------------------
+-- MAZLÍČCI A VAJÍČKA (Hatchery v lobby)
+-- Coins = bonus k mincím (0.1 = +10 %). Mazlíčci chodí za hráčem.
+---------------------------------------------------------------------
+Config.Pets = {
+	{ Id = "SandBunny", Name = "Sand Bunny", Rarity = "Common", Coins = 0.05 },
+	{ Id = "DesertMouse", Name = "Desert Mouse", Rarity = "Common", Coins = 0.06 },
+	{ Id = "ScarabBug", Name = "Scarab Bug", Rarity = "Rare", Coins = 0.12 },
+	{ Id = "FennecFox", Name = "Fennec Fox", Rarity = "Epic", Coins = 0.25 },
+	{ Id = "LilyFrog", Name = "Lily Frog", Rarity = "Common", Coins = 0.1 },
+	{ Id = "OasisTurtle", Name = "Oasis Turtle", Rarity = "Rare", Coins = 0.2 },
+	{ Id = "PalmParrot", Name = "Palm Parrot", Rarity = "Epic", Coins = 0.4 },
+	{ Id = "WaterSpirit", Name = "Water Spirit", Rarity = "Legendary", Coins = 0.8 },
+	{ Id = "MummyCat", Name = "Mummy Cat", Rarity = "Rare", Coins = 0.5 },
+	{ Id = "GoldenScarab", Name = "Golden Scarab", Rarity = "Epic", Coins = 0.9 },
+	{ Id = "SphinxCat", Name = "Sphinx Cat", Rarity = "Legendary", Coins = 1.6 },
+	{ Id = "SunDragon", Name = "Sun Dragon", Rarity = "Mythic", Coins = 4 },
+}
+
+-- Pets = { {Id mazlíčka, váha}, ... } – šance se v UI zobrazují v %
+Config.Eggs = {
+	{
+		Id = "SandEgg",
+		Name = "Sand Egg",
+		Price = 400,
+		Pets = { { "SandBunny", 45 }, { "DesertMouse", 35 }, { "ScarabBug", 17 }, { "FennecFox", 3 } },
+	},
+	{
+		Id = "OasisEgg",
+		Name = "Oasis Egg",
+		Price = 15000,
+		Pets = { { "LilyFrog", 45 }, { "OasisTurtle", 35 }, { "PalmParrot", 17 }, { "WaterSpirit", 3 } },
+	},
+	{
+		Id = "PharaohEgg",
+		Name = "Pharaoh Egg",
+		Price = 300000,
+		Pets = { { "MummyCat", 50 }, { "GoldenScarab", 33 }, { "SphinxCat", 15 }, { "SunDragon", 2 } },
+	},
+}
+
+Config.PetSlots = 3 -- kolik mazlíčků může chodit s hráčem (VIP +1)
+Config.MaxPets = 60 -- maximum v inventáři
+
+---------------------------------------------------------------------
+-- DENNÍ ÚKOLY (3 náhodné každý den)
+-- Targets = cíl podle pokroku hráče (začátečník / střední / pokročilý)
+---------------------------------------------------------------------
+Config.Quests = {
+	{ Id = "Dig", Text = "Dig %s sand", Icon = "⛏️", Targets = { 300, 3000, 30000 }, Reward = 250 },
+	{ Id = "Chests", Text = "Open %s chests", Icon = "🎁", Targets = { 2, 4, 6 }, Reward = 400 },
+	{ Id = "Sell", Text = "Sell sand %s times", Icon = "💰", Targets = { 3, 6, 10 }, Reward = 200 },
+	{ Id = "Hatch", Text = "Hatch %s eggs", Icon = "🥚", Targets = { 1, 3, 5 }, Reward = 350 },
+	{ Id = "Coins", Text = "Earn %s coins", Icon = "🪙", Targets = { 1500, 20000, 200000 }, Reward = 500 },
+}
+
+---------------------------------------------------------------------
 -- PÍSEČNÁ BOUŘE (znovu zasype poušť)
 ---------------------------------------------------------------------
 Config.Sandstorm = {
@@ -408,6 +467,23 @@ for index, backpack in Config.Backpacks do
 	Config.BackpacksById[backpack.Id] = backpack
 end
 
+Config.PetsById = {}
+for index, pet in Config.Pets do
+	pet.Index = index
+	Config.PetsById[pet.Id] = pet
+end
+
+Config.EggsById = {}
+for index, egg in Config.Eggs do
+	egg.Index = index
+	Config.EggsById[egg.Id] = egg
+end
+
+Config.QuestsById = {}
+for _, quest in Config.Quests do
+	Config.QuestsById[quest.Id] = quest
+end
+
 Config.ArtifactsById = {}
 for index, artifact in Config.Artifacts do
 	artifact.Index = index
@@ -419,6 +495,634 @@ return Config
 				</Properties>
 			</Item>
 			<Item class="ModuleScript" referent="RBX00000003">
+				<Properties>
+					<string name="Name">PetFactory</string>
+					<ProtectedString name="Source"><![CDATA[--[[
+	PetFactory – modely mazlíčků a vajíček (z partů, roztomilý "chibi" styl).
+
+	Model stojí na zemi v bodě (0,0,0) (neviditelný part "Root" = PrimaryPart),
+	kouká dopředu po ose -Z. Používá server (mazlíčci ve světě, vajíčka v lobby)
+	i klient (náhledy v UI a animace líhnutí).
+]]
+
+local PetFactory = {}
+
+local BLACK = Color3.fromRGB(28, 22, 20)
+local WHITE = Color3.new(1, 1, 1)
+local PINK = Color3.fromRGB(255, 150, 160)
+local GOLD = Color3.fromRGB(255, 200, 60)
+
+local FLYING = { WaterSpirit = true, PalmParrot = true, SunDragon = true }
+
+---------------------------------------------------------------------
+-- Stavebnice
+---------------------------------------------------------------------
+
+local function at(x: number, y: number, z: number, rx: number?, ry: number?, rz: number?): CFrame
+	return CFrame.new(x, y, z) * CFrame.Angles(math.rad(rx or 0), math.rad(ry or 0), math.rad(rz or 0))
+end
+
+local function newModel(name: string): Model
+	local model = Instance.new("Model")
+	model.Name = name
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.new(0.2, 0.2, 0.2)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.CFrame = CFrame.new()
+	root.Parent = model
+	model.PrimaryPart = root
+	return model
+end
+
+local function part(model: Model, name: string, size: Vector3, cf: CFrame, color: Color3, opts)
+	local o = opts or {}
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = o.Material or Enum.Material.SmoothPlastic
+	p.Transparency = o.Transparency or 0
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	if o.Ball then
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = p
+	elseif o.Cylinder then
+		p.Shape = Enum.PartType.Cylinder
+	end
+	p.Parent = model
+	return p
+end
+
+local function ball(model, name, size, cf, color, opts)
+	local o = opts or {}
+	o.Ball = true
+	return part(model, name, size, cf, color, o)
+end
+
+-- "trojúhelník" = kosočtverec napůl schovaný (uši lišky, kočky)
+local function diamond(model, name, size: number, cf: CFrame, color: Color3, depth: number?)
+	return part(model, name, Vector3.new(size, size, depth or 0.2), cf * CFrame.Angles(0, 0, math.rad(45)), color)
+end
+
+local function eyes(model, y: number, z: number, spacing: number, size: number, glow: Color3?)
+	for _, side in { -1, 1 } do
+		local x = side * spacing
+		ball(
+			model,
+			"Eye",
+			Vector3.new(size * 0.8, size, size * 0.4),
+			at(x, y, z),
+			glow or BLACK,
+			if glow then { Material = Enum.Material.Neon } else nil
+		)
+		ball(
+			model,
+			"EyeShine",
+			Vector3.new(size * 0.32, size * 0.32, size * 0.2),
+			at(x + size * 0.15, y + size * 0.22, z - size * 0.12),
+			WHITE,
+			{ Material = Enum.Material.Neon }
+		)
+	end
+end
+
+local function blush(model, y: number, z: number, spacing: number)
+	for _, side in { -1, 1 } do
+		ball(model, "Blush", Vector3.new(0.38, 0.2, 0.1), at(side * spacing, y, z), PINK, { Transparency = 0.25 })
+	end
+end
+
+local function feet(model, color: Color3, spread: number, z: number?)
+	for _, side in { -1, 1 } do
+		ball(model, "Foot", Vector3.new(0.6, 0.35, 0.75), at(side * spread, 0.18, z or -0.35), color)
+	end
+end
+
+---------------------------------------------------------------------
+-- Mazlíčci
+---------------------------------------------------------------------
+
+local PETS = {}
+
+PETS.SandBunny = function(m)
+	local fur, cream = Color3.fromRGB(240, 214, 168), Color3.fromRGB(255, 242, 220)
+	ball(m, "Body", Vector3.new(2, 1.9, 1.9), at(0, 1.05, 0), fur)
+	ball(m, "Belly", Vector3.new(1.3, 1.2, 0.6), at(0, 0.85, -0.72), cream)
+	for _, side in { -1, 1 } do
+		ball(m, "Ear", Vector3.new(0.48, 1.55, 0.32), at(side * 0.42, 2.45, 0.1, -10, 0, -side * 12), fur)
+		ball(m, "EarInner", Vector3.new(0.26, 1.1, 0.12), at(side * 0.43, 2.45, -0.04, -10, 0, -side * 12), PINK)
+	end
+	eyes(m, 1.35, -0.88, 0.42, 0.36)
+	blush(m, 1.08, -0.86, 0.62)
+	ball(m, "Nose", Vector3.new(0.2, 0.15, 0.1), at(0, 1.12, -0.95), PINK)
+	feet(m, cream, 0.45)
+	ball(m, "Tail", Vector3.new(0.6, 0.6, 0.6), at(0, 0.8, 0.95), WHITE)
+end
+
+PETS.DesertMouse = function(m)
+	local fur = Color3.fromRGB(176, 146, 120)
+	ball(m, "Body", Vector3.new(1.9, 1.7, 2.1), at(0, 0.95, 0), fur)
+	ball(m, "Belly", Vector3.new(1.2, 1.0, 0.6), at(0, 0.8, -0.78), Color3.fromRGB(230, 210, 190))
+	for _, side in { -1, 1 } do
+		part(m, "Ear", Vector3.new(0.16, 1.15, 1.15), at(side * 0.62, 1.95, 0.05, 0, 90, 0), fur, { Cylinder = true })
+		part(
+			m,
+			"EarInner",
+			Vector3.new(0.17, 0.8, 0.8),
+			at(side * 0.62, 1.95, -0.02, 0, 90, 0),
+			PINK,
+			{ Cylinder = true }
+		)
+		for k = -1, 1, 2 do
+			part(
+				m,
+				"Whisker",
+				Vector3.new(0.75, 0.03, 0.03),
+				at(side * 0.55, 0.98 + k * 0.08, -1.0, 0, 0, side * k * 8),
+				BLACK
+			)
+		end
+	end
+	eyes(m, 1.2, -0.97, 0.36, 0.32)
+	blush(m, 0.96, -0.92, 0.58)
+	ball(m, "Nose", Vector3.new(0.24, 0.2, 0.16), at(0, 1.0, -1.08), PINK)
+	feet(m, Color3.fromRGB(230, 200, 190), 0.42)
+	local tailPoints = {
+		Vector3.new(0, 0.4, 1.0),
+		Vector3.new(0, 0.55, 1.6),
+		Vector3.new(0.25, 0.95, 1.95),
+		Vector3.new(0.45, 1.35, 1.8),
+	}
+	for i = 1, #tailPoints - 1 do
+		local a, b = tailPoints[i], tailPoints[i + 1]
+		part(
+			m,
+			"Tail",
+			Vector3.new((b - a).Magnitude + 0.06, 0.12, 0.12),
+			CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.rad(90), 0),
+			PINK,
+			{ Cylinder = true }
+		)
+	end
+end
+
+local function scarab(m, shell: Color3, material: Enum.Material, gem: boolean)
+	local dark = shell:Lerp(BLACK, 0.55)
+	ball(m, "Body", Vector3.new(2, 1.3, 2.4), at(0, 0.95, 0.2), shell, { Material = material })
+	part(m, "ShellLine", Vector3.new(0.07, 0.06, 2.0), at(0, 1.6, 0.25), dark)
+	ball(m, "Head", Vector3.new(1.05, 0.85, 0.85), at(0, 0.85, -1.05), dark)
+	part(m, "Horn", Vector3.new(0.16, 0.7, 0.16), at(0, 1.35, -1.3, -30, 0, 0), dark)
+	eyes(m, 0.98, -1.44, 0.28, 0.26)
+	for _, side in { -1, 1 } do
+		for k = -1, 1 do
+			part(m, "Leg", Vector3.new(0.85, 0.12, 0.12), at(side * 1.05, 0.32, k * 0.6, 0, 0, side * 32), dark)
+		end
+	end
+	if gem then
+		local g = part(
+			m,
+			"Gem",
+			Vector3.new(0.5, 0.5, 0.25),
+			at(0, 1.62, 0.25, 90, 0, 45),
+			Color3.fromRGB(70, 200, 255),
+			{ Material = Enum.Material.Neon }
+		)
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = GOLD
+		sparkles.Parent = g
+	end
+end
+
+PETS.ScarabBug = function(m)
+	scarab(m, Color3.fromRGB(40, 140, 128), Enum.Material.Metal, false)
+end
+
+PETS.GoldenScarab = function(m)
+	scarab(m, GOLD, Enum.Material.Metal, true)
+end
+
+PETS.FennecFox = function(m)
+	local fur, white = Color3.fromRGB(242, 162, 82), Color3.fromRGB(255, 246, 232)
+	ball(m, "Body", Vector3.new(1.9, 1.8, 1.9), at(0, 1.0, 0), fur)
+	ball(m, "Belly", Vector3.new(1.2, 1.1, 0.5), at(0, 0.8, -0.72), white)
+	for _, side in { -1, 1 } do
+		diamond(m, "Ear", 1.0, at(side * 0.55, 2.05, 0.1, 0, 0, -side * 12), fur, 0.22)
+		diamond(m, "EarInner", 0.62, at(side * 0.55, 2.0, -0.02, 0, 0, -side * 12), PINK, 0.1)
+		ball(m, "Cheek", Vector3.new(0.62, 0.45, 0.3), at(side * 0.42, 0.95, -0.78), white)
+	end
+	ball(m, "Snout", Vector3.new(0.55, 0.42, 0.5), at(0, 0.98, -0.92), white)
+	ball(m, "Nose", Vector3.new(0.2, 0.16, 0.14), at(0, 1.1, -1.18), BLACK)
+	eyes(m, 1.35, -0.85, 0.4, 0.34)
+	feet(m, Color3.fromRGB(200, 120, 60), 0.45)
+	ball(m, "Tail", Vector3.new(0.95, 0.95, 1.7), at(0, 1.0, 1.15, 30, 0, 0), fur)
+	ball(m, "TailTip", Vector3.new(0.65, 0.65, 0.65), at(0, 1.45, 1.8), white)
+end
+
+PETS.LilyFrog = function(m)
+	local green, light = Color3.fromRGB(110, 200, 90), Color3.fromRGB(196, 238, 150)
+	ball(m, "Body", Vector3.new(2.1, 1.55, 1.9), at(0, 0.85, 0), green)
+	ball(m, "Belly", Vector3.new(1.4, 0.95, 0.5), at(0, 0.7, -0.72), light)
+	for _, side in { -1, 1 } do
+		ball(m, "EyeBump", Vector3.new(0.78, 0.78, 0.78), at(side * 0.5, 1.6, -0.4), green)
+	end
+	eyes(m, 1.66, -0.76, 0.5, 0.36)
+	part(m, "Smile", Vector3.new(0.95, 0.08, 0.06), at(0, 0.95, -0.97), Color3.fromRGB(60, 110, 50))
+	blush(m, 0.98, -0.88, 0.7)
+	feet(m, light, 0.55, -0.55)
+	part(
+		m,
+		"LilyPad",
+		Vector3.new(0.08, 1.25, 1.25),
+		at(0, 1.75, 0.25, 0, 0, 90),
+		Color3.fromRGB(60, 150, 70),
+		{ Cylinder = true }
+	)
+	ball(m, "Flower", Vector3.new(0.4, 0.32, 0.4), at(0.25, 1.86, 0.25), Color3.fromRGB(255, 130, 190))
+	ball(m, "FlowerCore", Vector3.new(0.15, 0.12, 0.15), at(0.25, 1.98, 0.25), Color3.fromRGB(255, 230, 90))
+end
+
+PETS.OasisTurtle = function(m)
+	local skin, shell = Color3.fromRGB(150, 205, 95), Color3.fromRGB(40, 152, 140)
+	ball(m, "Body", Vector3.new(2.2, 1.45, 2.4), at(0, 1.0, 0.15), shell)
+	ball(m, "ShellRim", Vector3.new(2.45, 0.42, 2.65), at(0, 0.6, 0.15), shell:Lerp(BLACK, 0.3))
+	for _, p in
+		{
+			Vector3.new(0, 1.7, 0.2),
+			Vector3.new(0.6, 1.5, -0.3),
+			Vector3.new(-0.6, 1.5, -0.3),
+			Vector3.new(0.6, 1.5, 0.7),
+			Vector3.new(-0.6, 1.5, 0.7),
+		}
+	do
+		ball(
+			m,
+			"ShellSpot",
+			Vector3.new(0.55, 0.12, 0.55),
+			CFrame.lookAt(p, p * 2) * CFrame.Angles(math.rad(90), 0, 0),
+			Color3.fromRGB(120, 220, 200)
+		)
+	end
+	ball(m, "Head", Vector3.new(0.95, 0.9, 0.95), at(0, 1.0, -1.25), skin)
+	eyes(m, 1.12, -1.66, 0.25, 0.26)
+	blush(m, 0.92, -1.62, 0.36)
+	for _, x in { -0.8, 0.8 } do
+		for _, z in { -0.6, 0.9 } do
+			ball(m, "Leg", Vector3.new(0.6, 0.5, 0.6), at(x, 0.28, z), skin)
+		end
+	end
+end
+
+PETS.PalmParrot = function(m)
+	local red, yellow, blue = Color3.fromRGB(232, 62, 52), Color3.fromRGB(255, 214, 70), Color3.fromRGB(52, 112, 224)
+	ball(m, "Body", Vector3.new(1.55, 1.9, 1.55), at(0, 1.1, 0.05), red)
+	ball(m, "Belly", Vector3.new(1.0, 1.15, 0.45), at(0, 0.95, -0.62), yellow)
+	ball(m, "Head", Vector3.new(1.3, 1.2, 1.2), at(0, 2.15, -0.1), red)
+	part(m, "Beak", Vector3.new(0.45, 0.45, 0.45), at(0, 2.0, -0.78, 45, 0, 0), Color3.fromRGB(255, 170, 40))
+	for _, side in { -1, 1 } do
+		ball(m, "EyePatch", Vector3.new(0.45, 0.5, 0.15), at(side * 0.32, 2.3, -0.62), WHITE)
+		ball(m, "Wing", Vector3.new(0.38, 1.35, 1.0), at(side * 0.82, 1.25, 0.1, 0, 0, side * 15), blue)
+		ball(
+			m,
+			"WingTip",
+			Vector3.new(0.3, 0.6, 0.7),
+			at(side * 0.9, 0.62, 0.25, 0, 0, side * 15),
+			Color3.fromRGB(60, 190, 90)
+		)
+	end
+	eyes(m, 2.3, -0.7, 0.32, 0.24)
+	for i, color in { blue, Color3.fromRGB(60, 190, 90), yellow } do
+		part(m, "TailFeather", Vector3.new(0.26, 0.08, 1.3), at((i - 2) * 0.22, 0.55, 0.95, 25, (i - 2) * 12, 0), color)
+	end
+	for k = -1, 1 do
+		part(
+			m,
+			"Leaf",
+			Vector3.new(0.18, 0.06, 0.8),
+			at(k * 0.18, 2.85, 0.05, -40, k * 30, 0),
+			Color3.fromRGB(70, 170, 70)
+		)
+	end
+	feet(m, Color3.fromRGB(255, 170, 40), 0.3)
+end
+
+PETS.WaterSpirit = function(m)
+	local water = Color3.fromRGB(90, 200, 255)
+	ball(
+		m,
+		"Body",
+		Vector3.new(2, 2.2, 2),
+		at(0, 1.3, 0),
+		water,
+		{ Material = Enum.Material.Glass, Transparency = 0.35 }
+	)
+	local core = ball(
+		m,
+		"Core",
+		Vector3.new(0.95, 0.95, 0.95),
+		at(0, 1.25, 0.1),
+		Color3.fromRGB(170, 245, 255),
+		{ Material = Enum.Material.Neon }
+	)
+	eyes(m, 1.5, -0.95, 0.38, 0.36)
+	blush(m, 1.18, -0.93, 0.6)
+	for i, p in
+		{
+			Vector3.new(1.3, 1.9, 0.3),
+			Vector3.new(-1.25, 1.6, 0.4),
+			Vector3.new(0, 2.75, 0.4),
+			Vector3.new(0.5, 2.55, -0.2),
+		}
+	do
+		ball(
+			m,
+			"Droplet",
+			Vector3.new(0.35, 0.45, 0.35) * (1 - i * 0.08),
+			CFrame.new(p),
+			water,
+			{ Material = Enum.Material.Glass, Transparency = 0.3 }
+		)
+	end
+	local light = Instance.new("PointLight")
+	light.Color = water
+	light.Range = 10
+	light.Brightness = 1.5
+	light.Parent = core
+end
+
+PETS.MummyCat = function(m)
+	local wrap, band = Color3.fromRGB(238, 228, 204), Color3.fromRGB(205, 192, 165)
+	ball(m, "Body", Vector3.new(1.9, 1.8, 1.9), at(0, 1.0, 0), wrap)
+	for i, y in { 0.55, 1.0, 1.45 } do
+		ball(
+			m,
+			"Bandage",
+			Vector3.new(1.97 - math.abs(y - 1) * 0.5, 0.16, 1.97 - math.abs(y - 1) * 0.5),
+			at(0, y, 0, 0, 0, (i - 2) * 9),
+			band
+		)
+	end
+	for _, side in { -1, 1 } do
+		diamond(m, "Ear", 0.7, at(side * 0.5, 1.85, 0.1, 0, 0, -side * 10), wrap)
+	end
+	ball(
+		m,
+		"EyeGlow",
+		Vector3.new(0.3, 0.38, 0.14),
+		at(-0.35, 1.3, -0.9),
+		Color3.fromRGB(110, 255, 120),
+		{ Material = Enum.Material.Neon }
+	)
+	part(m, "EyeWrap", Vector3.new(0.6, 0.16, 0.12), at(0.35, 1.32, -0.9, 0, 0, 15), band)
+	ball(m, "Nose", Vector3.new(0.16, 0.12, 0.1), at(0, 1.12, -0.96), PINK)
+	feet(m, band, 0.45)
+	part(m, "Tail", Vector3.new(1.2, 0.16, 0.16), at(0.3, 0.75, 1.0, 0, 60, 30), band, { Cylinder = true })
+end
+
+PETS.SphinxCat = function(m)
+	local fur, blue = Color3.fromRGB(226, 182, 112), Color3.fromRGB(40, 90, 200)
+	ball(m, "Body", Vector3.new(1.9, 1.8, 1.9), at(0, 1.0, 0), fur)
+	ball(m, "Headdress", Vector3.new(2.05, 1.05, 1.95), at(0, 1.75, 0.08), GOLD, { Material = Enum.Material.Metal })
+	-- modré pruhy kopírují zaoblení čelenky (jinak by byly schované uvnitř)
+	for _, dy in { -0.28, -0.04, 0.2 } do
+		local k = math.sqrt(1 - (dy / 0.525) ^ 2)
+		ball(m, "Stripe", Vector3.new(2.05 * k + 0.06, 0.12, 1.95 * k + 0.06), at(0, 1.75 + dy, 0.08), blue)
+	end
+	for _, side in { -1, 1 } do
+		part(
+			m,
+			"Flap",
+			Vector3.new(0.32, 1.0, 0.55),
+			at(side * 0.92, 1.2, -0.35),
+			GOLD,
+			{ Material = Enum.Material.Metal }
+		)
+		part(m, "FlapStripe", Vector3.new(0.34, 0.14, 0.57), at(side * 0.92, 1.1, -0.35), blue)
+		diamond(m, "Ear", 0.72, at(side * 0.55, 2.25, 0.15, 0, 0, -side * 10), fur)
+		part(m, "Liner", Vector3.new(0.5, 0.06, 0.06), at(side * 0.42, 1.2, -0.95, 0, 0, side * -12), BLACK)
+	end
+	eyes(m, 1.3, -0.88, 0.4, 0.34)
+	ball(m, "Nose", Vector3.new(0.18, 0.13, 0.1), at(0, 1.08, -0.96), PINK)
+	ball(m, "Collar", Vector3.new(1.65, 0.28, 1.65), at(0, 0.72, 0), GOLD, { Material = Enum.Material.Metal })
+	part(
+		m,
+		"CollarGem",
+		Vector3.new(0.28, 0.28, 0.12),
+		at(0, 0.72, -0.84, 0, 0, 45),
+		Color3.fromRGB(255, 60, 90),
+		{ Material = Enum.Material.Neon }
+	)
+	feet(m, fur, 0.45)
+	part(m, "Tail", Vector3.new(1.3, 0.2, 0.2), at(0.35, 0.8, 1.0, 0, 55, 35), fur, { Cylinder = true })
+end
+
+PETS.SunDragon = function(m)
+	local scale = Color3.fromRGB(255, 138, 30)
+	local belly = Color3.fromRGB(255, 226, 130)
+	local membrane = Color3.fromRGB(232, 62, 42)
+	local bone = Color3.fromRGB(190, 70, 24)
+	local horn = Color3.fromRGB(255, 246, 220)
+	ball(m, "Body", Vector3.new(1.85, 1.9, 2.0), at(0, 1.05, 0), scale)
+	ball(m, "Belly", Vector3.new(1.15, 1.2, 0.5), at(0, 0.82, -0.76), belly)
+	-- šupinky na bříšku
+	for i, y in { 0.62, 0.84, 1.06 } do
+		ball(
+			m,
+			"BellyPlate",
+			Vector3.new(0.95 - i * 0.1, 0.07, 0.3),
+			at(0, y, -0.96 + i * 0.02),
+			Color3.fromRGB(240, 190, 90)
+		)
+	end
+	-- čumák s nozdrami
+	ball(m, "Snout", Vector3.new(1.0, 0.62, 0.7), at(0, 1.08, -0.92), belly)
+	for _, side in { -1, 1 } do
+		ball(m, "Nostril", Vector3.new(0.1, 0.07, 0.06), at(side * 0.17, 1.2, -1.26), bone)
+	end
+	ball(m, "Smile", Vector3.new(0.36, 0.06, 0.06), at(0, 0.94, -1.24), bone)
+	eyes(m, 1.55, -0.8, 0.42, 0.38)
+	for _, side in { -1, 1 } do
+		-- rohy zahnuté dozadu (dva díly)
+		ball(m, "Horn", Vector3.new(0.26, 0.62, 0.26), at(side * 0.45, 2.12, 0.18, 35, 0, -side * 12), horn)
+		ball(m, "HornTip", Vector3.new(0.17, 0.5, 0.17), at(side * 0.5, 2.42, 0.48, 70, 0, -side * 12), horn)
+		-- ploutvičky po stranách hlavy
+		diamond(m, "Frill", 0.42, at(side * 0.95, 1.55, 0.15, 0, side * 70, 0), membrane, 0.08)
+		-- netopýří křídla: kost + 3 blány do vějíře
+		local shoulder = Vector3.new(side * 0.55, 1.75, 0.62)
+		for _, f in { { 18, 1.45 }, { 42, 1.7 }, { 66, 1.5 } } do
+			local angle, length = math.rad(f[1]), f[2]
+			local center = shoulder + Vector3.new(side * math.cos(angle) * length / 2, math.sin(angle) * length / 2, 0)
+			ball(
+				m,
+				"Wing",
+				Vector3.new(length, 0.58, 0.08),
+				CFrame.new(center) * CFrame.Angles(0, 0, side * angle),
+				membrane
+			)
+		end
+		local armAngle = math.rad(72)
+		local armCenter = shoulder + Vector3.new(side * math.cos(armAngle) * 0.85, math.sin(armAngle) * 0.85, -0.02)
+		ball(
+			m,
+			"WingBone",
+			Vector3.new(1.75, 0.16, 0.16),
+			CFrame.new(armCenter) * CFrame.Angles(0, 0, side * armAngle),
+			bone
+		)
+		ball(
+			m,
+			"Claw",
+			Vector3.new(0.16, 0.22, 0.16),
+			CFrame.new(shoulder + Vector3.new(side * 0.55, 1.72, -0.02)),
+			horn
+		)
+	end
+	-- trny na zádech
+	for i, z in { 0.3, 0.68, 1.02 } do
+		part(m, "Spike", Vector3.new(0.34, 0.34, 0.12), at(0, 2.0 - i * 0.2, z, 0, 90, 45), membrane)
+	end
+	blush(m, 1.28, -0.92, 0.66)
+	feet(m, belly, 0.45)
+	local tail = {
+		{ Vector3.new(0.8, 0.7, 0.9), Vector3.new(0, 0.7, 1.15) },
+		{ Vector3.new(0.6, 0.5, 0.75), Vector3.new(0, 0.78, 1.75) },
+		{ Vector3.new(0.42, 0.36, 0.55), Vector3.new(0, 0.98, 2.2) },
+	}
+	for _, t in tail do
+		ball(m, "Tail", t[1], CFrame.new(t[2]), scale)
+	end
+	local flame = ball(
+		m,
+		"TailFlame",
+		Vector3.new(0.55, 0.8, 0.55),
+		at(0, 1.32, 2.45),
+		Color3.fromRGB(255, 120, 30),
+		{ Material = Enum.Material.Neon }
+	)
+	local fire = Instance.new("Fire")
+	fire.Size = 2
+	fire.Heat = 4
+	fire.Color = Color3.fromRGB(255, 140, 40)
+	fire.Parent = flame
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 160, 60)
+	light.Range = 10
+	light.Brightness = 1.5
+	light.Parent = flame
+	-- jiskřičky (mýtický mazlíček)
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90))
+	sparkle.Size = NumberSequence.new(0.25)
+	sparkle.Rate = 6
+	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
+	sparkle.Speed = NumberRange.new(0.5, 1.2)
+	sparkle.LightEmission = 1
+	sparkle.Parent = m:FindFirstChild("Body")
+end
+
+function PetFactory.build(petId: string): Model
+	local model = newModel(petId)
+	local builder = PETS[petId] or PETS.SandBunny
+	builder(model)
+	model:SetAttribute("PetId", petId)
+	model:SetAttribute("Flying", FLYING[petId] == true)
+	return model
+end
+
+function PetFactory.isFlying(petId: string): boolean
+	return FLYING[petId] == true
+end
+
+---------------------------------------------------------------------
+-- Vajíčka
+---------------------------------------------------------------------
+
+local EGGS = {
+	SandEgg = {
+		Base = Color3.fromRGB(242, 208, 145),
+		Spot = Color3.fromRGB(184, 122, 62),
+		Band = Color3.fromRGB(214, 160, 92),
+	},
+	OasisEgg = {
+		Base = Color3.fromRGB(72, 192, 204),
+		Spot = Color3.fromRGB(120, 220, 120),
+		Band = Color3.fromRGB(240, 250, 255),
+	},
+	PharaohEgg = {
+		Base = GOLD,
+		Spot = Color3.fromRGB(40, 90, 200),
+		Band = Color3.fromRGB(40, 90, 200),
+		Metal = true,
+		Gem = true,
+	},
+}
+
+function PetFactory.egg(eggId: string, scale: number?): Model
+	local s = scale or 1
+	local style = EGGS[eggId] or EGGS.SandEgg
+	local model = newModel(eggId)
+	local material = if style.Metal then Enum.Material.Metal else Enum.Material.SmoothPlastic
+	local center = Vector3.new(0, 1.5 * s, 0)
+	local radius = Vector3.new(1.2, 1.5, 1.2) * s
+	ball(model, "Shell", radius * 2, CFrame.new(center), style.Base, { Material = material })
+	ball(
+		model,
+		"Band",
+		Vector3.new(2.46, 0.3, 2.46) * s,
+		CFrame.new(center + Vector3.new(0, -0.1 * s, 0)),
+		style.Band,
+		{ Material = material }
+	)
+	-- skvrny po povrchu vajíčka
+	local spots = { { 30, 50 }, { 150, 60 }, { 260, 40 }, { 80, -30 }, { 210, -35 }, { 330, -20 }, { 0, 75 } }
+	for _, sp in spots do
+		local yaw, pitch = math.rad(sp[1]), math.rad(sp[2])
+		local dir = Vector3.new(math.cos(pitch) * math.sin(yaw), math.sin(pitch), math.cos(pitch) * math.cos(yaw))
+		local surface = center + Vector3.new(dir.X * radius.X, dir.Y * radius.Y, dir.Z * radius.Z) * 0.97
+		ball(
+			model,
+			"Spot",
+			Vector3.new(0.55, 0.55, 0.16) * s,
+			CFrame.lookAt(surface, surface + dir),
+			style.Spot,
+			{ Material = material }
+		)
+	end
+	if style.Gem then
+		local gem = part(
+			model,
+			"Gem",
+			Vector3.new(0.45, 0.45, 0.2) * s,
+			CFrame.lookAt(center + Vector3.new(0, 0.2, -1.2) * s, center + Vector3.new(0, 0.2, -3) * s)
+				* CFrame.Angles(0, 0, math.rad(45)),
+			Color3.fromRGB(255, 60, 90),
+			{ Material = Enum.Material.Neon }
+		)
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = GOLD
+		sparkles.Parent = gem
+	end
+	return model
+end
+
+return PetFactory
+]]></ProtectedString>
+				</Properties>
+			</Item>
+			<Item class="ModuleScript" referent="RBX00000004">
 				<Properties>
 					<string name="Name">Remotes</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -439,6 +1143,11 @@ local DEFINITIONS = {
 	RedeemCode = "RemoteFunction",
 	GetData = "RemoteFunction",
 	ClaimDaily = "RemoteFunction",
+	HatchEgg = "RemoteFunction",
+	EquipPet = "RemoteFunction",
+	EquipBestPets = "RemoteFunction",
+	DeletePet = "RemoteFunction",
+	ClaimQuest = "RemoteFunction",
 	SaveSettings = "RemoteEvent",
 	-- server -> klient
 	DataSync = "RemoteEvent",
@@ -479,16 +1188,16 @@ return Remotes
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="ModuleScript" referent="RBX00000004">
+			<Item class="ModuleScript" referent="RBX00000005">
 				<Properties>
 					<string name="Name">ToolFactory</string>
 					<ProtectedString name="Source"><![CDATA[--[[
 	ToolFactory – staví modely nástrojů z Partů (žádné externí modely nejsou potřeba).
 
-	Konvence: nástroj míří dopředu po ose -Z, "nahoru" je +Y.
-	Grip = místo, kde ho postava drží (+ lehký náklon špičkou dolů).
+	Konvence: ruka drží nástroj v bodě (0,0,0), nástroj míří dopředu po ose -Z, "nahoru" je +Y.
+	Každý nástroj je složený z 15–30 dílů (válce, koule, klíny, neon), aby vypadal "hotově".
 	Chceš vlastní model? Viz docs/NAVOD.md – sekce "Vlastní modely nástrojů".
-	Sdílený modul: server z něj dělá nástroje do ruky, klient náhledy v obchodě
+	Sdílený modul: server z něj dělá nástroje do ruky, klient náhledy v obchodě a v liště
 	a lobby z něj staví dekorace (createModel).
 ]]
 
@@ -498,251 +1207,347 @@ local Config = require(ReplicatedStorage.Shared.Config)
 
 local ToolFactory = {}
 
-local WOOD = Color3.fromRGB(150, 100, 58)
-local METAL = Color3.fromRGB(175, 180, 190)
-local DARK = Color3.fromRGB(55, 55, 60)
-local GOLD = Color3.fromRGB(255, 200, 60)
+local WOOD = Color3.fromRGB(156, 104, 60)
+local STEEL = Color3.fromRGB(150, 158, 170)
+local STEEL_DARK = Color3.fromRGB(88, 94, 104)
+local CHROME = Color3.fromRGB(215, 220, 228)
+local RUBBER = Color3.fromRGB(38, 38, 42)
+local GOLD = Color3.fromRGB(255, 196, 50)
+local SAND = Color3.fromRGB(232, 190, 120)
+local CYAN = Color3.fromRGB(80, 230, 255)
 
-local function piece(
-	tool: Tool,
-	handle: BasePart,
-	name: string,
-	size: Vector3,
-	offset: CFrame,
-	color: Color3,
-	material: Enum.Material,
-	mesh: Enum.MeshType?
-)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.CFrame = handle.CFrame * offset
-	part.Color = color
-	part.Material = material
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.Massless = true
-	part.Anchored = false
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	if mesh then
-		local specialMesh = Instance.new("SpecialMesh")
-		specialMesh.MeshType = mesh
-		specialMesh.Parent = part
-	end
-	-- Klasický Weld s pevným offsetem – spolehlivý i když se nástroj staví mimo Workspace
-	local weld = Instance.new("Weld")
-	weld.Part0 = handle
-	weld.Part1 = part
-	weld.C0 = offset
-	weld.Parent = part
-	part.Parent = tool
-	return part
-end
+---------------------------------------------------------------------
+-- Stavebnice dílů (vše přivařené k neviditelnému Handle v místě úchopu)
+---------------------------------------------------------------------
 
-local function newHandle(tool: Tool, size: Vector3, color: Color3, material: Enum.Material, transparency: number?): Part
+local function newBuilder(tool: Tool)
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
-	handle.Size = size
-	handle.Color = color
-	handle.Material = material
-	handle.Transparency = transparency or 0
+	handle.Size = Vector3.new(0.3, 0.3, 0.3)
+	handle.Transparency = 1
 	handle.CanCollide = false
 	handle.CanTouch = false
 	handle.CanQuery = false
 	handle.Massless = true
 	handle.CFrame = CFrame.new()
-	handle.TopSurface = Enum.SurfaceType.Smooth
-	handle.BottomSurface = Enum.SurfaceType.Smooth
 	handle.Parent = tool
-	return handle
+
+	local B = {}
+
+	local function attach(part: BasePart, name: string, offset: CFrame, color: Color3, material: Enum.Material?)
+		part.Name = name
+		part.CFrame = offset
+		part.Color = color
+		part.Material = material or Enum.Material.SmoothPlastic
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Massless = true
+		part.Anchored = false
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		-- klasický Weld s pevným offsetem – spolehlivý i mimo Workspace
+		local weld = Instance.new("Weld")
+		weld.Part0 = handle
+		weld.Part1 = part
+		weld.C0 = offset
+		weld.Parent = part
+		part.Parent = tool
+		return part
+	end
+
+	function B.box(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?)
+		local part = Instance.new("Part")
+		part.Size = size
+		return attach(part, name, offset, color, material)
+	end
+
+	-- Válec s osou podél lokální Z osy daného offsetu
+	function B.cyl(
+		name: string,
+		length: number,
+		diameter: number,
+		offset: CFrame,
+		color: Color3,
+		material: Enum.Material?
+	)
+		local part = Instance.new("Part")
+		part.Shape = Enum.PartType.Cylinder
+		part.Size = Vector3.new(length, diameter, diameter)
+		return attach(part, name, offset * CFrame.Angles(0, math.rad(90), 0), color, material)
+	end
+
+	-- Elipsoid (SpecialMesh Sphere se natáhne podle velikosti)
+	function B.ball(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?)
+		local part = Instance.new("Part")
+		part.Size = size
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = part
+		return attach(part, name, offset, color, material)
+	end
+
+	function B.neon(name: string, size: Vector3, offset: CFrame, color: Color3)
+		return B.box(name, size, offset, color, Enum.Material.Neon)
+	end
+
+	B.handle = handle
+	return B
 end
 
-local function grip(z: number, tiltDegrees: number): CFrame
-	return CFrame.new(0, 0, z) * CFrame.Angles(math.rad(tiltDegrees), 0, 0)
+local function at(x: number, y: number, z: number, rx: number?, ry: number?, rz: number?): CFrame
+	return CFrame.new(x, y, z) * CFrame.Angles(math.rad(rx or 0), math.rad(ry or 0), math.rad(rz or 0))
 end
+
+local function grip(tiltDegrees: number): CFrame
+	return CFrame.Angles(math.rad(tiltDegrees), 0, 0)
+end
+
+-- Kovový list lopaty: obdélník + "kosočtverec" vpředu = špička
+local function spadeBlade(B, z: number, width: number, length: number, color: Color3, material: Enum.Material?)
+	B.box("Blade", Vector3.new(width, 0.1, length), at(0, 0, z), color, material)
+	local tip = width * 0.71
+	B.box("BladeTip", Vector3.new(tip, 0.1, tip), at(0, 0, z - length / 2, 0, 45, 0), color, material)
+	B.box(
+		"BladeRidge",
+		Vector3.new(width * 0.12, 0.13, length * 0.8),
+		at(0, 0.02, z + length * 0.05),
+		color:Lerp(Color3.new(1, 1, 1), 0.15),
+		material
+	)
+end
+
+---------------------------------------------------------------------
+-- Nástroje
+---------------------------------------------------------------------
 
 local BUILDERS = {}
 
 BUILDERS.Hands = function(tool: Tool)
-	newHandle(tool, Vector3.new(0.4, 0.4, 0.4), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, 1)
+	newBuilder(tool)
 	tool.Grip = CFrame.new()
 end
 
 BUILDERS.Spoon = function(tool: Tool)
-	local handle = newHandle(tool, Vector3.new(0.22, 0.1, 1.8), METAL, Enum.Material.Metal)
-	piece(
-		tool,
-		handle,
-		"Bowl",
-		Vector3.new(0.75, 0.22, 0.95),
-		CFrame.new(0, 0.02, -1.25),
-		METAL,
-		Enum.Material.Metal,
-		Enum.MeshType.Sphere
-	)
-	tool.Grip = grip(0.55, 15)
+	local B = newBuilder(tool)
+	local m = Enum.Material.Metal
+	B.box("Stem", Vector3.new(0.28, 0.1, 1.9), at(0, 0, 0.05), CHROME, m)
+	B.ball("StemEnd", Vector3.new(0.48, 0.13, 0.55), at(0, 0, 1.05), CHROME, m)
+	B.box("Neck", Vector3.new(0.17, 0.08, 0.55), at(0, -0.03, -1.15, -8, 0, 0), CHROME, m)
+	B.ball("Bowl", Vector3.new(0.9, 0.26, 1.2), at(0, -0.08, -1.9), CHROME, m)
+	B.ball("BowlInside", Vector3.new(0.72, 0.12, 1.0), at(0, 0.03, -1.9), STEEL_DARK, m)
+	B.ball("SandScoop", Vector3.new(0.6, 0.14, 0.8), at(0, 0.08, -1.88), SAND, Enum.Material.Sand)
+	-- rez ("Rusty" Spoon)
+	for i, z in { 0.6, -0.2, -0.7 } do
+		B.ball(
+			"Rust",
+			Vector3.new(0.16 + i * 0.03, 0.06, 0.2),
+			at((i % 2 - 0.5) * 0.12, 0.04, z),
+			Color3.fromRGB(170, 92, 48),
+			Enum.Material.CorrodedMetal
+		)
+	end
+	tool.Grip = grip(15)
 end
 
 BUILDERS.Trowel = function(tool: Tool)
-	local handle =
-		newHandle(tool, Vector3.new(0.32, 0.32, 1.2), Color3.fromRGB(200, 70, 50), Enum.Material.SmoothPlastic)
-	piece(tool, handle, "Ferrule", Vector3.new(0.36, 0.36, 0.25), CFrame.new(0, 0, -0.7), METAL, Enum.Material.Metal)
-	piece(tool, handle, "Neck", Vector3.new(0.12, 0.12, 0.5), CFrame.new(0, -0.1, -1), METAL, Enum.Material.Metal)
-	piece(tool, handle, "Blade", Vector3.new(0.95, 0.08, 1.4), CFrame.new(0, -0.18, -1.9), METAL, Enum.Material.Metal)
-	tool.Grip = grip(0.15, 20)
+	local B = newBuilder(tool)
+	local red = Color3.fromRGB(205, 55, 45)
+	B.cyl("Grip", 1.35, 0.44, at(0, 0, 0.25), red, Enum.Material.SmoothPlastic)
+	for _, z in { 0.55, 0.25, -0.05 } do
+		B.cyl("GripRing", 0.09, 0.48, at(0, 0, z), Color3.fromRGB(150, 30, 25))
+	end
+	B.ball("GripEnd", Vector3.new(0.5, 0.5, 0.5), at(0, 0, 0.95), Color3.fromRGB(150, 30, 25))
+	B.cyl("Ferrule", 0.32, 0.38, at(0, 0, -0.55), Color3.fromRGB(210, 165, 70), Enum.Material.Metal)
+	B.box("Neck", Vector3.new(0.12, 0.12, 0.62), at(0, -0.15, -0.9, -32, 0, 0), STEEL, Enum.Material.Metal)
+	spadeBlade(B, -1.75, 0.95, 1.0, STEEL, Enum.Material.Metal)
+	B.box("BladeEdge", Vector3.new(0.97, 0.04, 0.12), at(0, 0.05, -1.25), CHROME, Enum.Material.Metal)
+	tool.Grip = grip(20)
+end
+
+local function buildShovel(B, golden: boolean)
+	local shaftColor = if golden then Color3.fromRGB(70, 40, 22) else WOOD
+	local metal = if golden then GOLD else STEEL
+	local metalMat = Enum.Material.Metal
+	local accent = if golden then GOLD else RUBBER
+	B.cyl("Shaft", 3.7, 0.27, at(0, 0, -0.85), shaftColor, Enum.Material.Wood)
+	-- D-rukojeť
+	B.cyl(
+		"GripBar",
+		0.95,
+		0.24,
+		at(0, 0, 1.75, 0, 90, 0),
+		accent,
+		if golden then metalMat else Enum.Material.SmoothPlastic
+	)
+	B.cyl(
+		"GripArmL",
+		0.7,
+		0.16,
+		at(-0.3, 0, 1.4, 0, -40, 0),
+		accent,
+		if golden then metalMat else Enum.Material.SmoothPlastic
+	)
+	B.cyl(
+		"GripArmR",
+		0.7,
+		0.16,
+		at(0.3, 0, 1.4, 0, 40, 0),
+		accent,
+		if golden then metalMat else Enum.Material.SmoothPlastic
+	)
+	-- omotávka na násadě
+	for _, z in { 0.55, 0.05 } do
+		B.cyl(
+			"Wrap",
+			0.3,
+			0.31,
+			at(0, 0, z),
+			if golden then GOLD else RUBBER,
+			if golden then metalMat else Enum.Material.Fabric
+		)
+	end
+	B.cyl("Collar", 0.55, 0.36, at(0, 0, -2.85), if golden then GOLD else STEEL_DARK, metalMat)
+	for _, x in { -0.19, 0.19 } do
+		B.ball("Rivet", Vector3.new(0.1, 0.1, 0.1), at(x, 0, -2.85), CHROME, metalMat)
+	end
+	B.box("StepLip", Vector3.new(1.45, 0.18, 0.17), at(0, 0.07, -3.15), if golden then GOLD else STEEL_DARK, metalMat)
+	spadeBlade(B, -3.8, 1.35, 1.25, metal, metalMat)
+	B.ball("Dirt", Vector3.new(0.55, 0.12, 0.35), at(0.2, 0.07, -4.2), SAND, Enum.Material.Sand)
 end
 
 BUILDERS.Shovel = function(tool: Tool)
-	local handle = newHandle(tool, Vector3.new(0.25, 0.25, 4.4), WOOD, Enum.Material.Wood)
-	piece(tool, handle, "Grip", Vector3.new(0.9, 0.22, 0.22), CFrame.new(0, 0, 2.25), DARK, Enum.Material.SmoothPlastic)
-	piece(tool, handle, "Collar", Vector3.new(0.4, 0.4, 0.4), CFrame.new(0, 0, -2.3), DARK, Enum.Material.Metal)
-	piece(
-		tool,
-		handle,
-		"Blade",
-		Vector3.new(1.4, 0.12, 1.6),
-		CFrame.new(0, 0, -3.25),
-		Color3.fromRGB(90, 95, 105),
-		Enum.Material.Metal
-	)
-	tool.Grip = grip(1.3, 25)
+	local B = newBuilder(tool)
+	buildShovel(B, false)
+	tool.Grip = grip(25)
 end
 
 BUILDERS.GoldenShovel = function(tool: Tool)
-	local handle = newHandle(tool, Vector3.new(0.27, 0.27, 4.4), Color3.fromRGB(60, 35, 20), Enum.Material.Wood)
-	piece(tool, handle, "Grip", Vector3.new(0.95, 0.25, 0.25), CFrame.new(0, 0, 2.25), GOLD, Enum.Material.Metal)
-	piece(tool, handle, "Collar", Vector3.new(0.45, 0.45, 0.45), CFrame.new(0, 0, -2.3), GOLD, Enum.Material.Metal)
-	local blade =
-		piece(tool, handle, "Blade", Vector3.new(1.6, 0.14, 1.8), CFrame.new(0, 0, -3.35), GOLD, Enum.Material.Metal)
-	blade.Reflectance = 0.25
-	piece(
-		tool,
-		handle,
-		"Gem",
-		Vector3.new(0.4, 0.3, 0.4),
-		CFrame.new(0, 0.1, -2.75),
-		Color3.fromRGB(90, 230, 255),
-		Enum.Material.Neon
-	)
-	local sparkle = Instance.new("Sparkles")
-	sparkle.SparkleColor = GOLD
-	sparkle.Parent = blade
-	tool.Grip = grip(1.3, 25)
+	local B = newBuilder(tool)
+	buildShovel(B, true)
+	local gem = B.box("Gem", Vector3.new(0.38, 0.22, 0.38), at(0, 0.1, -3.55, 0, 45, 0), CYAN, Enum.Material.Neon)
+	B.neon("GemGlowL", Vector3.new(0.06, 0.12, 0.6), at(-0.45, 0.06, -3.8), CYAN)
+	B.neon("GemGlowR", Vector3.new(0.06, 0.12, 0.6), at(0.45, 0.06, -3.8), CYAN)
+	local sparkles = Instance.new("Sparkles")
+	sparkles.SparkleColor = GOLD
+	sparkles.Parent = gem
+	tool.Grip = grip(25)
 end
 
 BUILDERS.Vacuum = function(tool: Tool)
-	local handle = newHandle(tool, Vector3.new(0.9, 1.1, 1.5), Color3.fromRGB(230, 80, 50), Enum.Material.SmoothPlastic)
-	piece(
-		tool,
-		handle,
-		"Tank",
-		Vector3.new(0.8, 0.8, 1.2),
-		CFrame.new(0, 0.6, 0.4),
-		Color3.fromRGB(200, 220, 230),
-		Enum.Material.Glass
-	)
-	piece(
-		tool,
-		handle,
-		"Tube",
-		Vector3.new(0.38, 0.38, 3.2),
-		CFrame.new(0, -0.15, -2.3),
-		DARK,
-		Enum.Material.SmoothPlastic
-	)
-	piece(
-		tool,
-		handle,
-		"Nozzle",
-		Vector3.new(1.3, 0.3, 0.5),
-		CFrame.new(0, -0.15, -4.05),
-		Color3.fromRGB(30, 30, 30),
-		Enum.Material.SmoothPlastic
-	)
-	piece(
-		tool,
-		handle,
-		"Glow",
-		Vector3.new(0.45, 0.45, 0.12),
-		CFrame.new(0, -0.15, -3.7),
-		Color3.fromRGB(90, 230, 255),
-		Enum.Material.Neon
-	)
-	tool.Grip = grip(0.3, 12)
+	local B = newBuilder(tool)
+	local orange = Color3.fromRGB(242, 96, 44)
+	-- tělo (kapsle)
+	B.cyl("Body", 1.5, 1.05, at(0, 0.45, 0.35), orange)
+	B.ball("BodyBack", Vector3.new(1.05, 1.05, 0.9), at(0, 0.45, 1.1), orange)
+	B.ball("BodyFront", Vector3.new(1.05, 1.05, 0.7), at(0, 0.45, -0.4), orange)
+	for _, z in { 0.85, -0.15 } do
+		B.cyl("Band", 0.12, 1.1, at(0, 0.45, z), CHROME, Enum.Material.Metal)
+	end
+	-- nádoba s pískem
+	local tank = B.cyl("Tank", 0.95, 0.7, at(0, 1.15, 0.35), Color3.fromRGB(200, 235, 255), Enum.Material.Glass)
+	tank.Transparency = 0.45
+	B.cyl("TankSand", 0.85, 0.5, at(0, 1.08, 0.35), SAND, Enum.Material.Sand)
+	B.cyl("TankCapFront", 0.08, 0.74, at(0, 1.15, -0.13), RUBBER)
+	B.cyl("TankCapBack", 0.08, 0.74, at(0, 1.15, 0.83), RUBBER)
+	-- kontrolky
+	B.neon("LightA", Vector3.new(0.05, 0.14, 0.14), at(0.54, 0.6, 0.55), Color3.fromRGB(90, 255, 120))
+	B.neon("LightB", Vector3.new(0.05, 0.14, 0.14), at(0.54, 0.6, 0.25), Color3.fromRGB(255, 200, 60))
+	-- hadice z článků (oblouk dolů)
+	local p0, p1, p2 = Vector3.new(0, 0.3, -0.75), Vector3.new(0, 0.15, -2.1), Vector3.new(0, -0.55, -3.0)
+	local segments = 7
+	local last = p0
+	for i = 1, segments do
+		local t = i / segments
+		local point = p0 * (1 - t) ^ 2 + p1 * 2 * (1 - t) * t + p2 * t ^ 2
+		local mid = (last + point) / 2
+		local length = (point - last).Magnitude
+		B.cyl(
+			"Hose",
+			length + 0.05,
+			if i % 2 == 0 then 0.36 else 0.32,
+			CFrame.lookAt(mid, point),
+			if i % 2 == 0 then Color3.fromRGB(70, 72, 78) else RUBBER
+		)
+		last = point
+	end
+	-- hubice
+	B.box("Nozzle", Vector3.new(1.35, 0.34, 0.6), at(0, -0.62, -3.3), RUBBER)
+	B.box("NozzleTop", Vector3.new(1.0, 0.16, 0.45), at(0, -0.42, -3.2), Color3.fromRGB(60, 62, 68))
+	B.neon("NozzleGlow", Vector3.new(1.2, 0.07, 0.06), at(0, -0.66, -3.62), CYAN)
+	tool.Grip = grip(12)
 end
 
 BUILDERS.Blaster = function(tool: Tool)
-	local handle = newHandle(tool, Vector3.new(1.2, 1.3, 2), Color3.fromRGB(255, 190, 40), Enum.Material.SmoothPlastic)
-	piece(
-		tool,
-		handle,
-		"Stripe",
-		Vector3.new(1.25, 0.25, 2.05),
-		CFrame.new(0, 0.2, 0),
-		DARK,
-		Enum.Material.SmoothPlastic
-	)
-	piece(tool, handle, "Barrel", Vector3.new(0.8, 0.8, 2.6), CFrame.new(0, 0, -2.2), DARK, Enum.Material.Metal)
-	piece(
-		tool,
-		handle,
-		"Muzzle",
-		Vector3.new(1.3, 1.3, 0.6),
-		CFrame.new(0, 0, -3.6),
-		Color3.fromRGB(255, 190, 40),
-		Enum.Material.SmoothPlastic
-	)
-	piece(
-		tool,
-		handle,
-		"Core",
-		Vector3.new(0.9, 0.9, 0.15),
-		CFrame.new(0, 0, -3.95),
-		Color3.fromRGB(255, 120, 40),
-		Enum.Material.Neon
-	)
-	tool.Grip = grip(0.4, 8)
+	local B = newBuilder(tool)
+	local yellow = Color3.fromRGB(255, 192, 36)
+	B.ball("Body", Vector3.new(1.45, 1.35, 2.0), at(0, 0.35, 0.25), yellow)
+	B.box("StripeL", Vector3.new(0.06, 0.3, 1.5), at(-0.7, 0.35, 0.25), RUBBER)
+	B.box("StripeR", Vector3.new(0.06, 0.3, 1.5), at(0.7, 0.35, 0.25), RUBBER)
+	-- zadní ventilátor
+	B.cyl("FanHousing", 0.5, 1.55, at(0, 0.35, 1.2), Color3.fromRGB(60, 62, 70))
+	B.cyl("FanHub", 0.56, 0.35, at(0, 0.35, 1.22), CHROME, Enum.Material.Metal)
+	for k = 0, 5 do
+		B.box("FanBlade", Vector3.new(0.12, 1.25, 0.05), at(0, 0.35, 1.48, 0, 0, k * 30), Color3.fromRGB(40, 40, 46))
+	end
+	-- hlaveň
+	B.cyl("Barrel1", 1.0, 0.82, at(0, 0.3, -1.05), Color3.fromRGB(70, 72, 80), Enum.Material.Metal)
+	B.cyl("Barrel2", 0.9, 0.66, at(0, 0.3, -1.95), STEEL, Enum.Material.Metal)
+	B.cyl("Muzzle", 0.36, 1.02, at(0, 0.3, -2.5), yellow)
+	B.cyl("MuzzleCore", 0.08, 0.78, at(0, 0.3, -2.7), Color3.fromRGB(255, 130, 40), Enum.Material.Neon)
+	-- rukojeť a spoušť
+	B.box("GripHandle", Vector3.new(0.32, 0.85, 0.45), at(0, -0.45, 0.4, -15, 0, 0), RUBBER)
+	B.box("Trigger", Vector3.new(0.12, 0.25, 0.12), at(0, -0.3, 0.05), Color3.fromRGB(230, 60, 50))
+	for _, x in { -0.62, 0.62 } do
+		B.box("Vent", Vector3.new(0.05, 0.08, 0.5), at(x, 0.65, -0.2), RUBBER)
+		B.box("Vent", Vector3.new(0.05, 0.08, 0.5), at(x, 0.5, -0.2), RUBBER)
+	end
+	tool.Grip = grip(8)
 end
 
 BUILDERS.Excavator = function(tool: Tool)
+	local B = newBuilder(tool)
 	local yellow = Color3.fromRGB(255, 196, 30)
-	local handle = newHandle(tool, Vector3.new(0.7, 0.7, 5.5), yellow, Enum.Material.Metal)
-	piece(tool, handle, "Piston", Vector3.new(0.35, 0.35, 3.5), CFrame.new(0, 0.6, -0.5), METAL, Enum.Material.Metal)
-	piece(tool, handle, "Joint", Vector3.new(1, 1, 1), CFrame.new(0, 0, -2.9), DARK, Enum.Material.Metal)
-	piece(
-		tool,
-		handle,
-		"BucketBack",
-		Vector3.new(3.2, 1.8, 0.3),
-		CFrame.new(0, -0.6, -3.5),
-		yellow,
-		Enum.Material.Metal
-	)
-	piece(
-		tool,
-		handle,
-		"BucketBottom",
-		Vector3.new(3.2, 0.3, 1.8),
-		CFrame.new(0, -1.5, -4.3),
-		yellow,
-		Enum.Material.Metal
-	)
-	piece(tool, handle, "SideL", Vector3.new(0.25, 1.8, 1.8), CFrame.new(-1.5, -0.6, -4.3), yellow, Enum.Material.Metal)
-	piece(tool, handle, "SideR", Vector3.new(0.25, 1.8, 1.8), CFrame.new(1.5, -0.6, -4.3), yellow, Enum.Material.Metal)
-	for i = -2, 2 do
-		piece(
-			tool,
-			handle,
-			"Tooth",
-			Vector3.new(0.35, 0.3, 0.7),
-			CFrame.new(i * 0.65, -1.5, -5.4),
-			DARK,
-			Enum.Material.Metal
+	local m = Enum.Material.Metal
+	B.cyl("GripHandle", 1.05, 0.46, at(0, 0, 0.75), RUBBER)
+	B.ball("GripEnd", Vector3.new(0.52, 0.52, 0.52), at(0, 0, 1.3), RUBBER)
+	B.box("Arm", Vector3.new(0.72, 0.72, 4.2), at(0, 0, -1.9), yellow, m)
+	-- výstražné pruhy
+	for i = 0, 3 do
+		B.box(
+			"Hazard",
+			Vector3.new(0.75, 0.75, 0.22),
+			at(0, 0, -0.4 - i * 0.45),
+			if i % 2 == 0 then RUBBER else yellow,
+			m
 		)
 	end
-	tool.Grip = grip(2.2, 18)
+	-- hydraulika
+	B.box("PistonMountA", Vector3.new(0.3, 0.35, 0.3), at(0, 0.5, -0.7), STEEL_DARK, m)
+	B.box("PistonMountB", Vector3.new(0.3, 0.35, 0.3), at(0, 0.5, -3.3), STEEL_DARK, m)
+	B.cyl("PistonBody", 1.4, 0.32, at(0, 0.6, -1.4), STEEL_DARK, m)
+	B.cyl("PistonRod", 1.4, 0.18, at(0, 0.6, -2.7), CHROME, m)
+	-- kloub
+	B.cyl("Joint", 1.25, 0.95, at(0, 0, -4.05, 0, 90, 0), Color3.fromRGB(60, 62, 68), m)
+	B.cyl("JointPin", 1.4, 0.3, at(0, 0, -4.05, 0, 90, 0), CHROME, m)
+	-- lžíce
+	B.box("BucketBack", Vector3.new(3.0, 1.8, 0.28), at(0, -0.55, -4.45, -12, 0, 0), yellow, m)
+	B.box("BucketBottom", Vector3.new(3.0, 0.28, 1.9), at(0, -1.45, -5.3), yellow, m)
+	for _, x in { -1.4, 1.4 } do
+		B.box("BucketSide", Vector3.new(0.26, 1.7, 1.9), at(x, -0.6, -5.2), yellow, m)
+		B.box("SideTrim", Vector3.new(0.3, 0.22, 1.95), at(x, 0.25, -5.2), STEEL_DARK, m)
+	end
+	for i = -2, 2 do
+		B.box(
+			"Tooth",
+			Vector3.new(0.38, 0.26, 0.38),
+			at(i * 0.62, -1.45, -6.25, 0, 45, 0),
+			Color3.fromRGB(70, 72, 78),
+			m
+		)
+	end
+	B.ball("SandLoad", Vector3.new(2.6, 1.1, 1.7), at(0, -0.85, -5.25), SAND, Enum.Material.Sand)
+	tool.Grip = grip(18)
 end
 
 function ToolFactory.create(toolId: string): Tool
@@ -791,7 +1596,7 @@ return ToolFactory
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="ModuleScript" referent="RBX00000005">
+			<Item class="ModuleScript" referent="RBX00000006">
 				<Properties>
 					<string name="Name">Util</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -843,15 +1648,15 @@ return Util
 			</Item>
 		</Item>
 	</Item>
-	<Item class="ServerScriptService" referent="RBX00000017">
+	<Item class="ServerScriptService" referent="RBX0000001A">
 		<Properties>
 			<string name="Name">ServerScriptService</string>
 		</Properties>
-		<Item class="Folder" referent="RBX00000016">
+		<Item class="Folder" referent="RBX00000019">
 			<Properties>
 				<string name="Name">Server</string>
 			</Properties>
-			<Item class="Script" referent="RBX00000008">
+			<Item class="Script" referent="RBX00000009">
 				<Properties>
 					<string name="Name">Main</string>
 					<ProtectedString name="Source"><![CDATA[--[[
@@ -875,6 +1680,8 @@ local MonetizationService = require(Services.MonetizationService)
 local SandstormService = require(Services.SandstormService)
 local RewardService = require(Services.RewardService)
 local LeaderboardService = require(Services.LeaderboardService)
+local QuestService = require(Services.QuestService)
+local PetService = require(Services.PetService)
 
 -- Postavy spawnujeme až když je svět hotový
 Players.CharacterAutoLoads = false
@@ -891,6 +1698,8 @@ ShopService.init()
 DigService.init()
 RewardService.init()
 LeaderboardService.init()
+QuestService.init()
+PetService.init()
 WorldService.setReady(true)
 SandstormService.start()
 print(("[Dune Diggers] Svět hotový za %.1f s"):format(os.clock() - started))
@@ -947,6 +1756,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 	MonetizationService.loadPasses(player)
+	QuestService.ensure(player)
 	DataService.syncNow(player)
 
 	while not WorldService.isReady() and player.Parent do
@@ -962,18 +1772,24 @@ end
 ]]></ProtectedString>
 				</Properties>
 			</Item>
-			<Item class="Folder" referent="RBX00000015">
+			<Item class="Folder" referent="RBX00000018">
 				<Properties>
 					<string name="Name">Services</string>
 				</Properties>
-				<Item class="ModuleScript" referent="RBX00000009">
+				<Item class="ModuleScript" referent="RBX0000000A">
 					<Properties>
 						<string name="Name">Build</string>
 						<ProtectedString name="Source"><![CDATA[--[[
 	Build – pomocné funkce pro stavění mapy z Partů (používá WorldService a LobbyBuilder).
 ]]
 
+local Players = game:GetService("Players")
+
 local Build = {}
+
+-- Výchozí animace Robloxu (veřejné, fungují v každé hře)
+local IDLE_ANIMATION = "rbxassetid://507766666"
+local WAVE_ANIMATION = "rbxassetid://507770239"
 
 local DARK = Color3.fromRGB(60, 35, 15)
 
@@ -1225,6 +2041,122 @@ function Build.npc(parent: Instance, cframe: CFrame, colors, name: string?): Mod
 	return npc
 end
 
+-- Skutečný Roblox avatar jako NPC (R15, výchozí obličej, barvy oblečení, klobouk,
+-- animace idle + občas zamává). Když to nejde (např. v testech), použije Build.npc.
+function Build.avatarNpc(parent: Instance, cframe: CFrame, colors, name: string?, statue: boolean?): Model
+	local c = colors or {}
+	local ok, model = pcall(function()
+		local description = Instance.new("HumanoidDescription")
+		description.HeadColor = c.Skin or Color3.fromRGB(247, 197, 142)
+		description.LeftArmColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.RightArmColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.TorsoColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.LeftLegColor = c.Pants or Color3.fromRGB(110, 74, 44)
+		description.RightLegColor = c.Pants or Color3.fromRGB(110, 74, 44)
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not model then
+		return Build.npc(parent, cframe, colors, name)
+	end
+	model.Name = name or "NPC"
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local head = model:FindFirstChild("Head") :: BasePart?
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false -- hráči NPC projdou, nepřekáží
+			if statue then
+				part.Anchored = true
+				part.Material = c.Material or Enum.Material.Metal
+			end
+		elseif statue and part:IsA("Decal") then
+			part.Transparency = 0.6 -- obličej sochy jen naznačený
+		end
+	end
+	if root then
+		root.Anchored = true
+	end
+	local lift = 3
+	if humanoid and root then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		lift = humanoid.HipHeight + root.Size.Y / 2
+	end
+	model:PivotTo(cframe * CFrame.new(0, lift, 0))
+	-- klobouk z partů přivařený k hlavě
+	if head then
+		local hat = c.Hat or Color3.fromRGB(255, 122, 26)
+		local brim = Instance.new("Part")
+		brim.Name = "HatBrim"
+		brim.Shape = Enum.PartType.Cylinder
+		brim.Size = Vector3.new(0.14, 2.1, 2.1)
+		brim.Color = hat
+		brim.CanCollide = false
+		brim.Massless = true
+		brim.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.05, 0) * CFrame.Angles(0, 0, math.rad(90))
+		brim.Parent = model
+		local top = Instance.new("Part")
+		top.Name = "HatTop"
+		top.Size = Vector3.new(1.3, 0.75, 1.3)
+		top.Color = hat
+		top.CanCollide = false
+		top.Massless = true
+		top.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.38, 0)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = top
+		top.Parent = model
+		local band = Instance.new("Part")
+		band.Name = "HatBand"
+		band.Shape = Enum.PartType.Cylinder
+		band.Size = Vector3.new(0.2, 1.34, 1.34)
+		band.Color = Color3.fromRGB(80, 50, 22)
+		band.CanCollide = false
+		band.Massless = true
+		band.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.18, 0) * CFrame.Angles(0, 0, math.rad(90))
+		band.Parent = model
+		for _, piece in { brim, top, band } do
+			if statue then
+				piece.Anchored = true
+				piece.Material = c.Material or Enum.Material.Metal
+			end
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = head
+			weld.Part1 = piece
+			weld.Parent = piece
+		end
+		if name then
+			Build.billboard(head, name, Color3.fromRGB(255, 236, 170), Vector2.new(8, 1.6), 2.6, Enum.Font.FredokaOne)
+		end
+	end
+	model.Parent = parent
+	-- animace (idle stále, zamávání občas) – socha se nehýbe
+	if humanoid and not statue then
+		task.spawn(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+			animator.Parent = humanoid
+			local idleAnim = Instance.new("Animation")
+			idleAnim.AnimationId = IDLE_ANIMATION
+			local waveAnim = Instance.new("Animation")
+			waveAnim.AnimationId = WAVE_ANIMATION
+			local okIdle, idle = pcall(function()
+				return animator:LoadAnimation(idleAnim)
+			end)
+			if okIdle and idle then
+				idle.Looped = true
+				idle:Play()
+			end
+			local okWave, wave = pcall(function()
+				return animator:LoadAnimation(waveAnim)
+			end)
+			while okWave and wave and model.Parent do
+				task.wait(math.random(7, 14))
+				wave:Play()
+			end
+		end)
+	end
+	return model
+end
+
 -- Bedna / sud / dekorace
 function Build.crate(parent: Instance, position: Vector3, size: number?, rotation: number?)
 	local s = size or 3
@@ -1383,7 +2315,7 @@ return Build
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000A">
+				<Item class="ModuleScript" referent="RBX0000000B">
 					<Properties>
 						<string name="Name">DataService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -1414,6 +2346,7 @@ local DataService = {}
 
 local sessions = {} -- [Player] = session
 local saveHooks = {} -- funkce volané po uložení (např. žebříčky)
+local coinHooks = {} -- funkce volané při zisku mincí (např. denní úkoly)
 local store = nil
 
 local IS_STUDIO = RunService:IsStudio()
@@ -1436,6 +2369,11 @@ local function defaultData()
 		LastDaily = 0,
 		LastVipChest = 0,
 		Settings = { Music = 0.5, Sfx = 0.8, LowGfx = false, Popups = true },
+		Pets = {}, -- [uid] = PetId
+		EquippedPets = {}, -- { uid, ... }
+		PetCounter = 0,
+		Hatched = 0,
+		Quests = {}, -- { Day = n, List = { {Id, Target, Progress, Claimed} } }
 		FirstJoin = os.time(),
 	}
 end
@@ -1654,6 +2592,12 @@ function DataService.buildPayload(session)
 		LastDaily = data.LastDaily,
 		LastVipChest = data.LastVipChest,
 		DailyCooldown = Config.Daily.CooldownHours * 3600,
+		Pets = data.Pets,
+		EquippedPets = data.EquippedPets,
+		PetSlots = Stats.petSlots(session),
+		PetBonus = Stats.petBonus(data),
+		Hatched = data.Hatched,
+		Quests = data.Quests,
 		ServerTime = os.time(),
 	}
 end
@@ -1668,6 +2612,13 @@ function DataService.addCoins(player: Player, amount: number)
 	session.Data.Coins += amount
 	session.Data.TotalCoins += amount
 	session.Dirty = true
+	for _, hook in coinHooks do
+		hook(player, amount)
+	end
+end
+
+function DataService.onCoins(callback)
+	table.insert(coinHooks, callback)
 end
 
 -- Registrace funkce, která se zavolá po každém uložení dat hráče
@@ -1847,7 +2798,7 @@ return DataService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000B">
+				<Item class="ModuleScript" referent="RBX0000000C">
 					<Properties>
 						<string name="Name">DigService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -1861,6 +2812,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local ShopService = require(script.Parent.ShopService)
 local Stats = require(script.Parent.Stats)
 local TreasureService = require(script.Parent.TreasureService)
@@ -1948,6 +2900,7 @@ local function handleDig(player: Player, target)
 	data.Sand += gained
 	data.TotalSand += gained
 	DataService.markDirty(player)
+	QuestService.progress(player, "Dig", gained)
 	Remotes.DigResult:FireClient(player, gained, target, data.Sand >= capacity)
 
 	TreasureService.onDig(player, target, tool.Radius)
@@ -1965,7 +2918,7 @@ return DigService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000C">
+				<Item class="ModuleScript" referent="RBX0000000D">
 					<Properties>
 						<string name="Name">LeaderboardService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -2289,7 +3242,7 @@ return LeaderboardService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000D">
+				<Item class="ModuleScript" referent="RBX0000000E">
 					<Properties>
 						<string name="Name">LobbyBuilder</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -2309,7 +3262,9 @@ return LeaderboardService
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
+local Util = require(ReplicatedStorage.Shared.Util)
 local Build = require(script.Parent.Build)
 
 local W = Config.World
@@ -2317,6 +3272,7 @@ local HALF = W.CampHalf
 local TOP = W.CampTop
 local FLOOR = TOP + 0.4
 local POOL = 12 -- polovina šířky jezírka
+local POOL_FLOOR = 16 -- dno jezírka (hloubka 14 studs – dost na plavání)
 
 local SAND_LIGHT = Color3.fromRGB(236, 204, 150)
 local SAND_DARK = Color3.fromRGB(214, 170, 112)
@@ -2340,7 +3296,7 @@ local function buildBase(lobby: Model)
 		{ Vector3.new(0, TOP / 2, -(HALF + POOL) / 2), Vector3.new(HALF * 2, TOP, HALF - POOL) },
 		{ Vector3.new((HALF + POOL) / 2, TOP / 2, 0), Vector3.new(HALF - POOL, TOP, POOL * 2) },
 		{ Vector3.new(-(HALF + POOL) / 2, TOP / 2, 0), Vector3.new(HALF - POOL, TOP, POOL * 2) },
-		{ Vector3.new(0, 12, 0), Vector3.new(POOL * 2, 24, POOL * 2) },
+		{ Vector3.new(0, POOL_FLOOR / 2, 0), Vector3.new(POOL * 2, POOL_FLOOR, POOL * 2) },
 	}
 	for i, b in blocks do
 		P({
@@ -2526,8 +3482,8 @@ local function buildOasis(lobby: Model)
 		local alongX = d[1] == 0
 		P({
 			Name = "Rim",
-			Size = if alongX then Vector3.new(POOL * 2 + 4, 1.4, 2) else Vector3.new(2, 1.4, POOL * 2),
-			Position = Vector3.new(d[1] * (POOL + 1), FLOOR + 0.5, d[2] * (POOL + 1)),
+			Size = if alongX then Vector3.new(POOL * 2 + 4, 0.8, 2) else Vector3.new(2, 0.8, POOL * 2),
+			Position = Vector3.new(d[1] * (POOL + 1), FLOOR + 0.4, d[2] * (POOL + 1)),
 			Material = Enum.Material.Limestone,
 			Color = Color3.fromRGB(240, 220, 180),
 			Parent = oasis,
@@ -2536,9 +3492,9 @@ local function buildOasis(lobby: Model)
 	-- ostrůvek se zlatou sochou kopáče
 	Build.cylinder({
 		Name = "StatueIsland",
-		Height = 9.5,
+		Height = 34.7 - 1.2 - POOL_FLOOR,
 		Diameter = 8,
-		Position = Vector3.new(0, 24 + 4.75, 0),
+		Position = Vector3.new(0, POOL_FLOOR + (34.7 - 1.2 - POOL_FLOOR) / 2, 0),
 		Material = Enum.Material.Limestone,
 		Color = Color3.fromRGB(235, 212, 170),
 		Parent = oasis,
@@ -2552,18 +3508,37 @@ local function buildOasis(lobby: Model)
 		Color = GOLD,
 		Parent = oasis,
 	})
-	local statue = Build.npc(oasis, CFrame.new(0, 34.7, 0) * CFrame.Angles(0, math.rad(180), 0), {
+	local statue = Build.avatarNpc(oasis, CFrame.new(0, 34.7, 0) * CFrame.Angles(0, math.rad(180), 0), {
 		Skin = GOLD,
 		Shirt = GOLD,
 		Pants = GOLD,
 		Hat = GOLD,
 		Material = Enum.Material.Metal,
-	}, nil)
+	}, nil, true)
 	statue.Name = "GoldenDigger"
+	-- zlatá lopata zapíchnutá vedle sochy jako trofej
 	local shovel = ToolFactory.createModel("GoldenShovel")
-	shovel:PivotTo(CFrame.new(2.2, 38, -0.6) * CFrame.Angles(math.rad(-160), 0, math.rad(10)))
-	shovel.Parent = statue
-	Build.sparkles(statue.PrimaryPart :: BasePart, GOLD, 4)
+	shovel:PivotTo(CFrame.new(2.4, 36.4, 0.6) * CFrame.Angles(math.rad(-90), 0, math.rad(12)))
+	shovel.Parent = oasis
+	local sparkleHost = statue.PrimaryPart or statue:FindFirstChildWhichIsA("BasePart")
+	if sparkleHost then
+		Build.sparkles(sparkleHost, GOLD, 4)
+	end
+	-- schody pod vodou (na severní a jižní straně) – z vody se dá vylézt
+	for _, side in { -1, 1 } do
+		for k = 1, 7 do
+			local top = POOL_FLOOR + k * 2 - 0.4
+			local height = top - POOL_FLOOR
+			P({
+				Name = "PoolStep",
+				Size = Vector3.new(8, height, 1.3),
+				Position = Vector3.new(0, POOL_FLOOR + height / 2, side * (POOL - 0.65 - (7 - k) * 1.3)),
+				Material = Enum.Material.Limestone,
+				Color = Color3.fromRGB(225, 205, 165),
+				Parent = oasis,
+			})
+		end
+	end
 	-- lekníny
 	for i = 1, 6 do
 		local angle = i * 1.05
@@ -2681,7 +3656,7 @@ local function buildStall(
 		Color = Color3.fromRGB(120, 78, 42),
 		Parent = stall,
 	})
-	Build.npc(stall, frame * CFrame.new(0, 0.5, 0.8), npcColors, npcName)
+	Build.avatarNpc(stall, frame * CFrame.new(0, 0.5, 1.2), npcColors, npcName)
 	Build.billboard(counter, title, Color3.fromRGB(255, 236, 170), Vector2.new(14, 3), h + 1.5)
 	return stall, counter, frame
 end
@@ -2810,10 +3785,27 @@ local function buildMarket(lobby: Model, anchors)
 	})
 	Build.sparkles(pad, Color3.fromRGB(255, 220, 90), 10)
 	Build.billboard(pad, "SELL SAND", Color3.fromRGB(255, 225, 90), Vector2.new(16, 4), 22)
-	Build.npc(sell, CFrame.new(c + Vector3.new(-9.5, 0.6, 0)) * CFrame.Angles(0, math.rad(-90), 0), {
+	-- Výkupce stojí ZA pultem na zadním okraji pavilonu – nepřekáží při prodeji
+	P({
+		Name = "BuyerCounter",
+		Size = Vector3.new(1.6, 3.2, 7),
+		Position = c + Vector3.new(-9.2, 2.2, 0),
+		Material = Enum.Material.WoodPlanks,
+		Color = Color3.fromRGB(176, 120, 66),
+		Parent = sell,
+	})
+	P({
+		Name = "BuyerCounterTop",
+		Size = Vector3.new(2, 0.3, 7.4),
+		Position = c + Vector3.new(-9.2, 3.95, 0),
+		Material = Enum.Material.Wood,
+		Color = Color3.fromRGB(120, 78, 42),
+		Parent = sell,
+	})
+	Build.avatarNpc(sell, CFrame.new(c + Vector3.new(-11, 0.6, 0)) * CFrame.Angles(0, math.rad(-90), 0), {
 		Shirt = Color3.fromRGB(240, 190, 60),
+		Pants = Color3.fromRGB(90, 60, 120),
 		Hat = Color3.fromRGB(150, 40, 40),
-		Beard = Color3.fromRGB(230, 230, 230),
 	}, "Sand Buyer")
 	for i = 1, 5 do
 		Build.ellipsoid({
@@ -3334,7 +4326,7 @@ local function buildNorth(lobby: Model, anchors)
 
 	-- velbloud z kostiček
 	local camel = Build.model("Camel", north)
-	local cc = CFrame.new(28, FLOOR, 48) * CFrame.Angles(0, math.rad(200), 0)
+	local cc = CFrame.new(-44, FLOOR, 50) * CFrame.Angles(0, math.rad(160), 0)
 	local tan = Color3.fromRGB(196, 150, 96)
 	for _, leg in { { -1.2, -2.2 }, { 1.2, -2.2 }, { -1.2, 2.2 }, { 1.2, 2.2 } } do
 		P({
@@ -3379,9 +4371,85 @@ local function buildNorth(lobby: Model, anchors)
 		Parent = camel,
 	})
 	Build.carpet(camel, (cc * CFrame.new(0, 6.32, 0.4)).Position, Vector2.new(3.4, 3.6), Color3.fromRGB(180, 40, 60))
-	Build.crate(north, Vector3.new(34, FLOOR, 44), 2.6, 0.4)
-	Build.barrel(north, Vector3.new(22, FLOOR, 52))
+	Build.crate(north, Vector3.new(-37, FLOOR, 46), 2.6, 0.4)
+	Build.barrel(north, Vector3.new(-50, FLOOR, 54))
 	Build.pot(north, Vector3.new(-14, FLOOR, 54), Color3.fromRGB(80, 140, 170))
+end
+
+---------------------------------------------------------------------
+-- Hatchery: stánky s vajíčky (severovýchod)
+---------------------------------------------------------------------
+
+local function buildHatchery(lobby: Model, anchors)
+	local hatchery = Build.model("Hatchery", lobby)
+	anchors.EggStands = {}
+	local ringColors = { Color3.fromRGB(240, 190, 110), Color3.fromRGB(80, 210, 220), GOLD }
+	for i, egg in Config.Eggs do
+		local base = Vector3.new(1 + i * 13, FLOOR, 50)
+		local pedestal = Build.cylinder({
+			Name = "EggPedestal",
+			Height = 2.4,
+			Diameter = 6.5,
+			Position = base + Vector3.new(0, 1.2, 0),
+			Material = Enum.Material.Marble,
+			Color = Color3.fromRGB(245, 235, 215),
+			Parent = hatchery,
+		})
+		Build.cylinder({
+			Name = "EggRing",
+			Height = 0.3,
+			Diameter = 6.8,
+			Position = base + Vector3.new(0, 2.4, 0),
+			Material = Enum.Material.Neon,
+			Color = ringColors[i] or GOLD,
+			Parent = hatchery,
+		})
+		Build.cylinder({
+			Name = "Nest",
+			Height = 0.6,
+			Diameter = 4.2,
+			Position = base + Vector3.new(0, 2.7, 0),
+			Material = Enum.Material.Fabric,
+			Color = Color3.fromRGB(196, 150, 80),
+			Parent = hatchery,
+		})
+		local eggModel = PetFactory.egg(egg.Id, 1.35)
+		eggModel.Name = "HatcheryEgg"
+		eggModel:PivotTo(CFrame.new(base + Vector3.new(0, 2.8, 0)))
+		eggModel.Parent = hatchery
+		Build.light(pedestal, ringColors[i] or GOLD, 12, 0.8)
+		Build.billboard(pedestal, string.upper(egg.Name), ringColors[i] or GOLD, Vector2.new(9, 2.2), 8.5)
+		local _, priceLabel = Build.billboard(
+			pedestal,
+			"💰 " .. Util.formatNumber(egg.Price),
+			Color3.new(1, 1, 1),
+			Vector2.new(6, 1.5),
+			6.6,
+			Enum.Font.FredokaOne
+		)
+		priceLabel.Parent.Name = "Price"
+		anchors.EggStands[egg.Id] = pedestal
+	end
+	-- cedule nad Hatchery
+	local sign = P({
+		Name = "HatcherySign",
+		Size = Vector3.new(26, 3.2, 0.6),
+		CFrame = CFrame.lookAt(Vector3.new(27, FLOOR + 12, 55.5), Vector3.new(27, FLOOR + 12, 0)),
+		Material = Enum.Material.WoodPlanks,
+		Color = Color3.fromRGB(120, 70, 140),
+		Parent = hatchery,
+	})
+	Build.sign(sign, "EGG HATCHERY", Color3.fromRGB(255, 225, 120), { Enum.NormalId.Front })
+	for _, x in { 15, 39 } do
+		P({
+			Name = "HatcherySignPost",
+			Size = Vector3.new(1, 12, 1),
+			Position = Vector3.new(x, FLOOR + 6, 55.8),
+			Material = Enum.Material.Wood,
+			Color = WOOD,
+			Parent = hatchery,
+		})
+	end
 end
 
 local function buildDecor(lobby: Model)
@@ -3421,7 +4489,13 @@ end
 
 -- Voda v oáze (Terrain). Volá se znovu po každém přegenerování pouště.
 function LobbyBuilder.fillWater()
-	workspace.Terrain:FillBlock(CFrame.new(0, 27, 0), Vector3.new(POOL * 2, 6, POOL * 2), Enum.Material.Water)
+	-- voda od dna (POOL_FLOOR) po hladinu ve výšce TOP (horní voxel napůl = hladina přesně u okraje)
+	local depth = TOP - POOL_FLOOR
+	workspace.Terrain:FillBlock(
+		CFrame.new(0, POOL_FLOOR + depth / 2, 0),
+		Vector3.new(POOL * 2, depth, POOL * 2),
+		Enum.Material.Water
+	)
 end
 
 function LobbyBuilder.build(parent: Instance)
@@ -3441,6 +4515,7 @@ function LobbyBuilder.build(parent: Instance)
 	buildPassPlaza(lobby, anchors)
 	buildVipLounge(lobby, anchors)
 	buildNorth(lobby, anchors)
+	buildHatchery(lobby, anchors)
 	buildDecor(lobby)
 
 	-- Spawny kolem oázy
@@ -3491,7 +4566,7 @@ return LobbyBuilder
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000E">
+				<Item class="ModuleScript" referent="RBX0000000F">
 					<Properties>
 						<string name="Name">MonetizationService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -3703,7 +4778,383 @@ return MonetizationService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000000F">
+				<Item class="ModuleScript" referent="RBX00000010">
+					<Properties>
+						<string name="Name">PetService</string>
+						<ProtectedString name="Source"><![CDATA[--[[
+	PetService – vajíčka a mazlíčci.
+
+	- Vajíčka se kupují za mince u stánků v Hatchery (lobby) nebo v okně Egg.
+	- Šance na mazlíčky jsou vidět v UI (Config.Eggs).
+	- Nasazení mazlíčci dávají bonus k mincím a chodí za hráčem
+	  (server je vytvoří ve workspace.Pets, klient je plynule posouvá).
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Util = require(ReplicatedStorage.Shared.Util)
+local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
+local Stats = require(script.Parent.Stats)
+local WorldService = require(script.Parent.WorldService)
+
+local PetService = {}
+
+local rng = Random.new()
+local petsFolder: Folder? = nil
+
+local function countPets(data): number
+	local n = 0
+	for _ in data.Pets do
+		n += 1
+	end
+	return n
+end
+
+local function petValue(data, uid: string): number
+	local pet = Config.PetsById[data.Pets[uid] or ""]
+	return if pet then pet.Coins else 0
+end
+
+local function rollPet(egg): string
+	local total = 0
+	for _, entry in egg.Pets do
+		total += entry[2]
+	end
+	local roll = rng:NextNumber() * total
+	for _, entry in egg.Pets do
+		roll -= entry[2]
+		if roll <= 0 then
+			return entry[1]
+		end
+	end
+	return egg.Pets[1][1]
+end
+
+-- Vytvoří modely nasazených mazlíčků (klient je pak posouvá za hráčem)
+function PetService.refreshModels(player: Player)
+	local session = DataService.get(player)
+	if not session or not petsFolder then
+		return
+	end
+	local folder = petsFolder:FindFirstChild(tostring(player.UserId))
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = tostring(player.UserId)
+		folder.Parent = petsFolder
+	end
+	folder:ClearAllChildren()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	for index, uid in session.Data.EquippedPets do
+		local petId = session.Data.Pets[uid]
+		if petId then
+			local model = PetFactory.build(petId)
+			model.Name = string.format("%02d_%s", index, uid)
+			if root then
+				model:PivotTo(root.CFrame * CFrame.new((index - 2) * 3, -2.5, 4))
+			end
+			model.Parent = folder
+		end
+	end
+end
+
+local function equipBest(session)
+	local data = session.Data
+	local uids = {}
+	for uid in data.Pets do
+		table.insert(uids, uid)
+	end
+	table.sort(uids, function(a, b)
+		return petValue(data, a) > petValue(data, b)
+	end)
+	local slots = Stats.petSlots(session)
+	data.EquippedPets = {}
+	for i = 1, math.min(slots, #uids) do
+		table.insert(data.EquippedPets, uids[i])
+	end
+end
+
+function PetService.hatch(player: Player, eggId: string, count: number)
+	local session = DataService.get(player)
+	local egg = type(eggId) == "string" and Config.EggsById[eggId]
+	if not session or not egg then
+		return false, "Unknown egg"
+	end
+	count = if count == 3 then 3 else 1
+	local data = session.Data
+	local cost = egg.Price * count
+	if data.Coins < cost then
+		return false, ("You need %s more coins"):format(Util.formatNumber(cost - data.Coins))
+	end
+	if countPets(data) + count > Config.MaxPets then
+		return false, "Your pet inventory is full! Delete some pets first."
+	end
+	data.Coins -= cost
+	local results = {}
+	for _ = 1, count do
+		data.PetCounter += 1
+		local uid = "p" .. data.PetCounter
+		local petId = rollPet(egg)
+		local isNew = true
+		for _, owned in data.Pets do
+			if owned == petId then
+				isNew = false
+			end
+		end
+		data.Pets[uid] = petId
+		data.Hatched += 1
+		table.insert(results, { Uid = uid, PetId = petId, New = isNew })
+		-- volný slot? rovnou nasadit
+		if #data.EquippedPets < Stats.petSlots(session) then
+			table.insert(data.EquippedPets, uid)
+		end
+	end
+	QuestService.progress(player, "Hatch", count)
+	DataService.markDirty(player)
+	PetService.refreshModels(player)
+	-- vzácný mazlíček = oznámení pro celý server
+	for _, result in results do
+		local pet = Config.PetsById[result.PetId]
+		local rarity = Config.Rarities[pet.Rarity]
+		if rarity.Order >= 4 then
+			DataService.notifyAll(
+				("%s hatched a %s %s! 🥚"):format(player.DisplayName, string.upper(pet.Rarity), pet.Name),
+				"rarity:" .. pet.Rarity
+			)
+		end
+	end
+	return true, "Hatched!", results
+end
+
+function PetService.init()
+	local folder = Instance.new("Folder")
+	folder.Name = "Pets"
+	folder.Parent = workspace
+	petsFolder = folder
+
+	Remotes.HatchEgg.OnServerInvoke = function(player, eggId, count)
+		return PetService.hatch(player, eggId, count)
+	end
+
+	Remotes.EquipPet.OnServerInvoke = function(player, uid, equip)
+		local session = DataService.get(player)
+		if not session or type(uid) ~= "string" or not session.Data.Pets[uid] then
+			return false, "Unknown pet"
+		end
+		local data = session.Data
+		local index = table.find(data.EquippedPets, uid)
+		if equip == false or (equip == nil and index) then
+			if index then
+				table.remove(data.EquippedPets, index)
+			end
+		else
+			if index then
+				return true, "Already equipped"
+			end
+			if #data.EquippedPets >= Stats.petSlots(session) then
+				return false, ("You can equip %d pets (VIP +1)"):format(Stats.petSlots(session))
+			end
+			table.insert(data.EquippedPets, uid)
+		end
+		DataService.markDirty(player)
+		PetService.refreshModels(player)
+		return true, ""
+	end
+
+	Remotes.EquipBestPets.OnServerInvoke = function(player)
+		local session = DataService.get(player)
+		if not session then
+			return false, "Not ready"
+		end
+		equipBest(session)
+		DataService.markDirty(player)
+		PetService.refreshModels(player)
+		return true, "Equipped your best pets!"
+	end
+
+	Remotes.DeletePet.OnServerInvoke = function(player, uid)
+		local session = DataService.get(player)
+		if not session or type(uid) ~= "string" or not session.Data.Pets[uid] then
+			return false, "Unknown pet"
+		end
+		local data = session.Data
+		if table.find(data.EquippedPets, uid) then
+			return false, "Unequip the pet first"
+		end
+		data.Pets[uid] = nil
+		DataService.markDirty(player)
+		return true, "Pet deleted"
+	end
+
+	-- Stánky s vajíčky v lobby otevřou okno vajíčka
+	local lobby = WorldService.Lobby or {}
+	for eggId, standPart in lobby.EggStands or {} do
+		local egg = Config.EggsById[eggId]
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "Open"
+		prompt.ObjectText = egg.Name
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 12
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = standPart
+		prompt.Triggered:Connect(function(player)
+			Remotes.OpenWindow:FireClient(player, "Egg:" .. eggId)
+		end)
+	end
+
+	local function onPlayer(player: Player)
+		player.CharacterAdded:Connect(function()
+			task.wait(1)
+			PetService.refreshModels(player)
+		end)
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		local f = petsFolder and petsFolder:FindFirstChild(tostring(player.UserId))
+		if f then
+			f:Destroy()
+		end
+	end)
+end
+
+return PetService
+]]></ProtectedString>
+					</Properties>
+				</Item>
+				<Item class="ModuleScript" referent="RBX00000011">
+					<Properties>
+						<string name="Name">QuestService</string>
+						<ProtectedString name="Source"><![CDATA[--[[
+	QuestService – denní úkoly. Každý den 3 náhodné úkoly podle pokroku hráče
+	(začátečník / střední / pokročilý). Splněný úkol se vybírá v okně QUESTS.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Util = require(ReplicatedStorage.Shared.Util)
+local DataService = require(script.Parent.DataService)
+
+local QuestService = {}
+
+local function today(): number
+	return os.time() // 86400
+end
+
+local function tierFor(data): number
+	local tool = Config.ToolsById[data.EquippedTool]
+	local index = if tool then tool.Index else 1
+	if data.Rebirths >= 1 or index >= 6 then
+		return 3
+	elseif index >= 4 then
+		return 2
+	end
+	return 1
+end
+
+-- Vygeneruje nové úkoly, když začal nový den
+function QuestService.ensure(player: Player)
+	local session = DataService.get(player)
+	if not session then
+		return nil
+	end
+	local data = session.Data
+	local day = today()
+	if type(data.Quests) ~= "table" or data.Quests.Day ~= day or type(data.Quests.List) ~= "table" then
+		local rng = Random.new(math.abs(player.UserId) * 31 + day)
+		local pool = {}
+		for _, quest in Config.Quests do
+			table.insert(pool, quest.Id)
+		end
+		local list = {}
+		local tier = tierFor(data)
+		for _ = 1, math.min(3, #pool) do
+			local id = table.remove(pool, rng:NextInteger(1, #pool))
+			local quest = Config.QuestsById[id]
+			table.insert(list, { Id = id, Target = quest.Targets[tier], Progress = 0, Claimed = false, Tier = tier })
+		end
+		data.Quests = { Day = day, List = list }
+		DataService.markDirty(player)
+	end
+	return data.Quests
+end
+
+function QuestService.progress(player: Player, questId: string, amount: number)
+	local quests = QuestService.ensure(player)
+	if not quests or amount <= 0 then
+		return
+	end
+	for _, quest in quests.List do
+		if quest.Id == questId and not quest.Claimed and quest.Progress < quest.Target then
+			quest.Progress = math.min(quest.Target, quest.Progress + amount)
+			if quest.Progress >= quest.Target then
+				local info = Config.QuestsById[questId]
+				DataService.notify(
+					player,
+					("%s Quest complete! Claim your reward in QUESTS 📋"):format(info.Icon),
+					"success"
+				)
+			end
+			DataService.markDirty(player)
+		end
+	end
+end
+
+function QuestService.claim(player: Player, index: number)
+	local quests = QuestService.ensure(player)
+	local session = DataService.get(player)
+	local quest = quests and type(index) == "number" and quests.List[index]
+	if not quest or not session then
+		return false, "Unknown quest"
+	end
+	if quest.Claimed then
+		return false, "Already claimed"
+	end
+	if quest.Progress < quest.Target then
+		return false, "Not finished yet"
+	end
+	quest.Claimed = true
+	local info = Config.QuestsById[quest.Id]
+	local coins = info.Reward * (quest.Tier or 1) * (session.Data.Rebirths + 1)
+	DataService.addCoins(player, coins)
+	Remotes.Reward:FireClient(player, "Quest", coins)
+	return true, ("Quest reward: +%s coins!"):format(Util.formatNumber(coins))
+end
+
+function QuestService.init()
+	Remotes.ClaimQuest.OnServerInvoke = function(player, index)
+		return QuestService.claim(player, index)
+	end
+	-- úkol "vydělej mince"
+	DataService.onCoins(function(player, amount)
+		QuestService.progress(player, "Coins", amount)
+	end)
+	-- nový den = nové úkoly (i pro hráče, kteří jsou zrovna ve hře)
+	task.spawn(function()
+		while true do
+			task.wait(60)
+			for _, player in Players:GetPlayers() do
+				QuestService.ensure(player)
+			end
+		end
+	end)
+end
+
+return QuestService
+]]></ProtectedString>
+					</Properties>
+				</Item>
+				<Item class="ModuleScript" referent="RBX00000012">
 					<Properties>
 						<string name="Name">RewardService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -3887,7 +5338,7 @@ return RewardService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000010">
+				<Item class="ModuleScript" referent="RBX00000013">
 					<Properties>
 						<string name="Name">SandstormService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -3992,7 +5443,7 @@ return SandstormService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000011">
+				<Item class="ModuleScript" referent="RBX00000014">
 					<Properties>
 						<string name="Name">ShopService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -4007,6 +5458,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local Stats = require(script.Parent.Stats)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
 local WorldService = require(script.Parent.WorldService)
@@ -4069,6 +5521,7 @@ function ShopService.sell(player: Player, isAuto: boolean?): number
 	data.Sand = 0
 	DataService.addCoins(player, coins)
 	DataService.markDirty(player)
+	QuestService.progress(player, "Sell", 1)
 	Remotes.Sold:FireClient(player, coins, sand, isAuto == true)
 	return coins
 end
@@ -4281,7 +5734,7 @@ return ShopService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000012">
+				<Item class="ModuleScript" referent="RBX00000015">
 					<Properties>
 						<string name="Name">Stats</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -4306,10 +5759,28 @@ function Stats.artifactBonus(data): number
 	return bonus
 end
 
+-- Součet bonusů nasazených mazlíčků (0.25 = +25 %)
+function Stats.petBonus(data): number
+	local bonus = 0
+	for _, uid in data.EquippedPets or {} do
+		local petId = data.Pets[uid]
+		local pet = petId and Config.PetsById[petId]
+		if pet then
+			bonus += pet.Coins
+		end
+	end
+	return bonus
+end
+
+function Stats.petSlots(session): number
+	return Config.PetSlots + (if session.Passes.VIP then 1 else 0)
+end
+
 function Stats.coinMultiplier(session): number
 	local data = session.Data
 	local multiplier = 1 + data.Rebirths * Config.Rebirth.MultiplierPerRebirth
 	multiplier *= 1 + Stats.artifactBonus(data)
+	multiplier *= 1 + Stats.petBonus(data)
 	if session.Passes.DoubleCoins then
 		multiplier *= Config.PassEffects.DoubleCoins
 	end
@@ -4365,7 +5836,7 @@ return Stats
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000013">
+				<Item class="ModuleScript" referent="RBX00000016">
 					<Properties>
 						<string name="Name">TreasureService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -4383,6 +5854,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local Stats = require(script.Parent.Stats)
 local WorldService = require(script.Parent.WorldService)
 
@@ -4461,6 +5933,92 @@ local function buildChest(rarityName: string, cframe: CFrame, isRelic: boolean)
 		Enum.Material.Neon
 	)
 	lock.CanCollide = false
+
+	-- detaily: prkna, kovové rohy, nožičky
+	local dark = bodyColor:Lerp(Color3.new(0, 0, 0), 0.35)
+	for _, y in { -0.35, 0.3 } do
+		chestPart(
+			model,
+			"Plank",
+			Vector3.new(3.02, 0.07, 2.02) * scale,
+			cframe * CFrame.new(0, y * scale, 0),
+			dark,
+			material
+		)
+	end
+	for _, x in { -1.4, 1.4 } do
+		for _, z in { -0.9, 0.9 } do
+			chestPart(
+				model,
+				"Corner",
+				Vector3.new(0.28, 1.86, 0.28) * scale,
+				cframe * CFrame.new(x * scale, 0, z * scale),
+				gold,
+				Enum.Material.Metal
+			)
+			chestPart(
+				model,
+				"Foot",
+				Vector3.new(0.4, 0.2, 0.4) * scale,
+				cframe * CFrame.new(x * scale, -1 * scale, z * scale),
+				dark,
+				Enum.Material.Metal
+			)
+		end
+	end
+	if rarity.Order >= 2 then
+		local gem = chestPart(
+			model,
+			"Gem",
+			Vector3.new(0.28, 0.28, 0.12) * scale,
+			cframe * CFrame.new(0, 0.95 * scale, -1.18 * scale) * CFrame.Angles(0, 0, math.rad(45)),
+			rarity.Color:Lerp(Color3.new(1, 1, 1), 0.3),
+			Enum.Material.Neon
+		)
+		gem.CanCollide = false
+	end
+	-- víko: oblá kopule + zlaté pásy (přivařené k víku, otevírají se s ním)
+	local lidPieces = {
+		{
+			"LidDome",
+			Vector3.new(3, 0.9, 2) * scale,
+			CFrame.new(0, 0.35 * scale, 0),
+			bodyColor:Lerp(Color3.new(1, 1, 1), 0.12),
+			material,
+			true,
+		},
+		{
+			"LidBandL",
+			Vector3.new(0.26, 0.8, 2.06) * scale,
+			CFrame.new(-1.05 * scale, 0.05 * scale, 0),
+			gold,
+			Enum.Material.Metal,
+			false,
+		},
+		{
+			"LidBandR",
+			Vector3.new(0.26, 0.8, 2.06) * scale,
+			CFrame.new(1.05 * scale, 0.05 * scale, 0),
+			gold,
+			Enum.Material.Metal,
+			false,
+		},
+	}
+	for _, info in lidPieces do
+		local piece = chestPart(model, info[1], info[2], lid.CFrame * info[3], info[4], info[5])
+		piece.Anchored = false
+		piece.CanCollide = false
+		piece.Massless = true
+		if info[6] then
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = piece
+		end
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = lid
+		weld.Part1 = piece
+		weld.Parent = piece
+	end
 
 	model.PrimaryPart = base
 
@@ -4634,6 +6192,7 @@ local function openChest(model: Model, info, player: Player)
 	coins = math.floor(coins)
 	DataService.addCoins(player, coins)
 	data.ChestsOpened += 1
+	QuestService.progress(player, "Chests", 1)
 	DataService.markDirty(player)
 
 	local position = (model.PrimaryPart :: BasePart).Position
@@ -4795,7 +6354,7 @@ return TreasureService
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000014">
+				<Item class="ModuleScript" referent="RBX00000017">
 					<Properties>
 						<string name="Name">WorldService</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5421,19 +6980,19 @@ return WorldService
 			</Item>
 		</Item>
 	</Item>
-	<Item class="StarterPlayer" referent="RBX00000025">
+	<Item class="StarterPlayer" referent="RBX0000002A">
 		<Properties>
 			<string name="Name">StarterPlayer</string>
 		</Properties>
-		<Item class="StarterPlayerScripts" referent="RBX00000023">
+		<Item class="StarterPlayerScripts" referent="RBX00000028">
 			<Properties>
 				<string name="Name">StarterPlayerScripts</string>
 			</Properties>
-			<Item class="Folder" referent="RBX00000022">
+			<Item class="Folder" referent="RBX00000027">
 				<Properties>
 					<string name="Name">Client</string>
 				</Properties>
-				<Item class="ModuleScript" referent="RBX00000018">
+				<Item class="ModuleScript" referent="RBX0000001B">
 					<Properties>
 						<string name="Name">Audio</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5615,7 +7174,7 @@ return Audio
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000019">
+				<Item class="ModuleScript" referent="RBX0000001C">
 					<Properties>
 						<string name="Name">DigController</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -5814,7 +7373,7 @@ return DigController
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001A">
+				<Item class="ModuleScript" referent="RBX0000001D">
 					<Properties>
 						<string name="Name">Effects</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -6084,7 +7643,217 @@ return Effects
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001B">
+				<Item class="ModuleScript" referent="RBX0000001E">
+					<Properties>
+						<string name="Name">HatchFx</string>
+						<ProtectedString name="Source"><![CDATA[--[[
+	HatchFx – animace líhnutí: vajíčko se třese, praskne (záblesk), objeví se mazlíček,
+	jeho rarita, bonus, "NEW!" a konfety.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
+local UIKit = require(script.Parent.UIKit)
+
+local T = UIKit.Theme
+local new = UIKit.new
+
+local HatchFx = {}
+
+local CONFETTI = { T.Orange, T.Gold, T.Cyan, T.Pink, T.Green, T.Purple, T.Blue }
+
+local function viewport(parent: Instance, zIndex: number)
+	local vp = new("ViewportFrame", {
+		Size = UDim2.fromOffset(300, 300),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(185, 175, 165),
+		LightColor = Color3.fromRGB(255, 245, 230),
+		LightDirection = Vector3.new(-1, -1.5, -1),
+		ZIndex = zIndex,
+		Parent = parent,
+	})
+	local camera = new("Camera", { FieldOfView = 32, Parent = vp })
+	camera.CFrame = CFrame.lookAt(Vector3.new(2.2, 2.6, -8.6), Vector3.new(0, 1.45, 0))
+	vp.CurrentCamera = camera
+	return vp
+end
+
+local function confetti(layer: Frame, count: number)
+	for _ = 1, count do
+		local startX = math.random()
+		local piece = new("Frame", {
+			Size = UDim2.fromOffset(math.random(10, 18), math.random(6, 12)),
+			Position = UDim2.new(startX, 0, 0, -20),
+			BackgroundColor3 = CONFETTI[math.random(1, #CONFETTI)],
+			Rotation = math.random(0, 360),
+			ZIndex = 78,
+			Parent = layer,
+		})
+		UIKit.corner(piece, 3)
+		local duration = 1.6 + math.random() * 1.2
+		TweenService:Create(piece, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(startX + (math.random() - 0.5) * 0.2, 0, 1.1, 0),
+			Rotation = piece.Rotation + math.random(-400, 400),
+		}):Play()
+		task.delay(duration + 0.1, function()
+			piece:Destroy()
+		end)
+	end
+end
+
+-- results = { {PetId, New}, ... }
+function HatchFx.play(gui: ScreenGui, results, eggId: string, sfx)
+	local overlay = new("TextButton", {
+		Name = "HatchFx",
+		Text = "",
+		AutoButtonColor = false,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.35,
+		ZIndex = 70,
+		Parent = gui,
+	})
+	local count = #results
+	local cards = {}
+	for i, result in results do
+		local card = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, (i - (count + 1) / 2) * 320, 0.48, 0),
+			Size = UDim2.fromOffset(300, 420),
+			BackgroundTransparency = 1,
+			ZIndex = 71,
+			Parent = overlay,
+		})
+		local vp = viewport(card, 72)
+		local egg = PetFactory.egg(eggId, 1.0)
+		egg.Parent = vp
+		local pet = Config.PetsById[result.PetId]
+		local rarity = Config.Rarities[pet.Rarity]
+		local name = UIKit.text({
+			Text = string.upper(pet.Name),
+			Position = UDim2.fromOffset(0, 300),
+			Size = UDim2.new(1, 0, 0, 44),
+			Font = UIKit.Font.Title,
+			TextColor3 = rarity.Color,
+			Stroke = 3,
+			Visible = false,
+			ZIndex = 73,
+			Parent = card,
+		})
+		local info = UIKit.text({
+			Text = string.upper(pet.Rarity) .. ("  •  +%d%% COINS"):format(math.floor(pet.Coins * 100 + 0.5)),
+			Position = UDim2.fromOffset(0, 346),
+			Size = UDim2.new(1, 0, 0, 30),
+			Font = UIKit.Font.Title,
+			Stroke = 2,
+			Visible = false,
+			ZIndex = 73,
+			Parent = card,
+		})
+		local badge = UIKit.text({
+			Text = "NEW!",
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 10),
+			Size = UDim2.fromOffset(140, 40),
+			Font = UIKit.Font.Title,
+			TextColor3 = T.Gold,
+			Rotation = -8,
+			Stroke = 3,
+			Visible = false,
+			ZIndex = 74,
+			Parent = card,
+		})
+		table.insert(cards, {
+			Card = card,
+			Viewport = vp,
+			Egg = egg,
+			Name = name,
+			Info = info,
+			Badge = badge,
+			Result = result,
+			Rarity = rarity,
+		})
+	end
+	local flash = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 77,
+		Parent = overlay,
+	})
+
+	local done = false
+	local function finish()
+		if done then
+			return
+		end
+		done = true
+		TweenService:Create(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.3, function()
+			overlay:Destroy()
+		end)
+	end
+
+	task.spawn(function()
+		-- 1) třesení
+		local started = os.clock()
+		local shake = RunService.RenderStepped:Connect(function()
+			local elapsed = os.clock() - started
+			local amplitude = math.min(elapsed / 1.4, 1) * 0.35
+			for i, c in cards do
+				if c.Egg.Parent then
+					c.Egg:PivotTo(CFrame.Angles(0, 0, math.sin(elapsed * 28 + i) * amplitude))
+				end
+			end
+		end)
+		for k = 1, 4 do
+			task.wait(0.33)
+			sfx("Click", 0.5, 0.8 + k * 0.15)
+		end
+		shake:Disconnect()
+		-- 2) záblesk a odhalení
+		flash.BackgroundTransparency = 0
+		TweenService:Create(flash, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+		local best = 1
+		for _, c in cards do
+			c.Egg:Destroy()
+			local model = PetFactory.build(c.Result.PetId)
+			model.Parent = c.Viewport
+			c.Pet = model
+			c.Name.Visible = true
+			c.Info.Visible = true
+			c.Badge.Visible = c.Result.New == true
+			UIKit.pop(c.Card, 0.6)
+			best = math.max(best, c.Rarity.Order)
+		end
+		sfx(if best >= 3 then "Rare" else "Chest", 0.9)
+		confetti(overlay, if best >= 4 then 80 else 40)
+		-- mazlíček se pomalu otáčí
+		local spinStart = os.clock()
+		local spin = RunService.RenderStepped:Connect(function()
+			for _, c in cards do
+				if c.Pet and c.Pet.Parent then
+					c.Pet:PivotTo(CFrame.Angles(0, math.sin((os.clock() - spinStart) * 1.5) * 0.6, 0))
+				end
+			end
+		end)
+		overlay.Activated:Connect(finish)
+		task.wait(3)
+		spin:Disconnect()
+		finish()
+	end)
+	return overlay
+end
+
+return HatchFx
+]]></ProtectedString>
+					</Properties>
+				</Item>
+				<Item class="ModuleScript" referent="RBX0000001F">
 					<Properties>
 						<string name="Name">Hotbar</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -6507,7 +8276,7 @@ return Hotbar
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001C">
+				<Item class="ModuleScript" referent="RBX00000020">
 					<Properties>
 						<string name="Name">Hud</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -6638,7 +8407,7 @@ local function buildMenu()
 	local menu = new("Frame", {
 		Name = "Menu",
 		Position = UDim2.fromOffset(14, 150),
-		Size = UDim2.fromOffset(2 * 76 + 10, 4 * 80 + 3 * 10),
+		Size = UDim2.fromOffset(2 * 76 + 10, 5 * 80 + 4 * 10),
 		BackgroundTransparency = 1,
 		Parent = root,
 	})
@@ -6650,10 +8419,12 @@ local function buildMenu()
 	})
 	local items = {
 		{ "Shop", "🛒", "SHOP", T.Orange },
+		{ "Pets", "🐾", "PETS", Color3.fromRGB(255, 110, 160) },
 		{ "Store", "💎", "STORE", T.Purple },
+		{ "Quests", "📋", "QUESTS", T.Green },
 		{ "Rebirth", "♻️", "REBIRTH", T.Cyan },
+		{ "Daily", "🎁", "DAILY", Color3.fromRGB(70, 190, 120) },
 		{ "Index", "📜", "INDEX", Color3.fromRGB(196, 130, 66) },
-		{ "Daily", "🎁", "DAILY", T.Green },
 		{ "Codes", "🎟️", "CODES", T.Pink },
 		{ "Top", "🏆", "TOP", T.Gold },
 		{ "Camp", "⛺", "CAMP", T.Blue },
@@ -6998,6 +8769,22 @@ function Hud.update(newState)
 	Hud.setDot("Rebirth", state.Coins >= state.RebirthCost)
 	local clockOffset = (state.ServerTime or os.time()) - os.time()
 	Hud.setDot("Daily", os.time() + clockOffset >= (state.LastDaily or 0) + (state.DailyCooldown or 0))
+	-- splněný úkol čeká na vyzvednutí
+	local questReady = false
+	local quests = state.Quests
+	for _, quest in (type(quests) == "table" and quests.List) or {} do
+		if not quest.Claimed and quest.Progress >= quest.Target then
+			questReady = true
+		end
+	end
+	Hud.setDot("Quests", questReady)
+	-- volné místo pro mazlíčka, který zrovna nechodí s hráčem
+	local owned = 0
+	for _ in state.Pets or {} do
+		owned += 1
+	end
+	local equipped = #(state.EquippedPets or {})
+	Hud.setDot("Pets", equipped < (state.PetSlots or 0) and owned > equipped)
 end
 
 function Hud.setVisible(visible: boolean)
@@ -7057,7 +8844,7 @@ return Hud
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="LocalScript" referent="RBX0000001D">
+				<Item class="LocalScript" referent="RBX00000021">
 					<Properties>
 						<string name="Name">Main</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7067,6 +8854,7 @@ return Hud
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 
@@ -7078,6 +8866,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local Audio = require(script.Parent:WaitForChild("Audio"))
 local DigController = require(script.Parent:WaitForChild("DigController"))
 local Effects = require(script.Parent:WaitForChild("Effects"))
+local PetFollow = require(script.Parent:WaitForChild("PetFollow"))
 local UI = require(script.Parent:WaitForChild("UI"))
 
 local player = Players.LocalPlayer
@@ -7143,6 +8932,7 @@ end)
 Audio.init()
 UI.init({ sfx = Audio.sfx, settingsChanged = onSettingsChanged, toggleMusic = toggleMusic })
 DigController.init()
+PetFollow.init()
 applySettings()
 Audio.setMenu(true)
 
@@ -7150,6 +8940,13 @@ UI.showMenu(function()
 	Audio.setMenu(false)
 	UI.setHudVisible(true)
 	Audio.sfx("Open", 0.6)
+	-- Upozornění jen pro vývojáře ve Studiu: hudba ještě není nahraná
+	if RunService:IsStudio() and Config.Music.Lobby == "" then
+		task.delay(1.5, function()
+			UI.toast("🎵 No music yet: upload assets/audio files (docs/NAVOD.md 6.5)", "storm")
+			UI.toast("(Only you see this message in Studio)", "info")
+		end)
+	end
 end)
 
 local function applyState(newState)
@@ -7265,7 +9062,9 @@ end)
 
 Remotes.Reward.OnClientEvent:Connect(function(kind, coins)
 	UI.bigPopup(
-		(if kind == "Vip" then "👑 VIP " else "🎁 DAILY ") .. "+" .. Util.formatNumber(coins),
+		(if kind == "Vip" then "👑 VIP " elseif kind == "Quest" then "📋 QUEST " else "🎁 DAILY ")
+			.. "+"
+			.. Util.formatNumber(coins),
 		Color3.fromRGB(150, 255, 150)
 	)
 	UI.flyCoins(10)
@@ -7369,7 +9168,7 @@ end)
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001E">
+				<Item class="ModuleScript" referent="RBX00000022">
 					<Properties>
 						<string name="Name">MainMenu</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7450,48 +9249,66 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 		Parent = shade,
 	})
 
-	local logo = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 30),
-		Size = UDim2.fromOffset(900, 300),
+	-- Všechno v jednom sloupci (logo, podtitul, tlačítka, tip) – nic se nepřekrývá
+	-- a sloupec se zmenší, když je obrazovka nízká (mobil).
+	local column = new("Frame", {
+		Name = "Column",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(900, 640),
 		BackgroundTransparency = 1,
-		Rotation = -3,
 		ZIndex = 61,
 		Parent = root,
 	})
-	logoWord(logo, "DUNE", 0, 120, Color3.fromRGB(255, 248, 220), Color3.fromRGB(240, 170, 80))
-	logoWord(logo, "DIGGERS", 110, 170, Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 120, 20))
+	new("UIListLayout", {
+		Padding = UDim.new(0, 10),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = column,
+	})
+	local fit = new("UIScale", { Parent = column })
+	local function refit()
+		local screenScale = 1
+		local guiScale = gui:FindFirstChildOfClass("UIScale")
+		if guiScale then
+			screenScale = guiScale.Scale
+		end
+		local available = root.AbsoluteSize and root.AbsoluteSize.Y / math.max(screenScale, 0.01) or 720
+		fit.Scale = math.clamp((available - 20) / 640, 0.55, 1)
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+	refit()
+
+	local logoSlot = new(
+		"Frame",
+		{ Size = UDim2.fromOffset(900, 250), BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 61, Parent = column }
+	)
+	local logo = new("Frame", {
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromOffset(900, 250),
+		BackgroundTransparency = 1,
+		Rotation = -3,
+		ZIndex = 61,
+		Parent = logoSlot,
+	})
+	logoWord(logo, "DUNE", 0, 100, Color3.fromRGB(255, 248, 220), Color3.fromRGB(240, 170, 80))
+	logoWord(logo, "DIGGERS", 92, 150, Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 120, 20))
 	TweenService:Create(
 		logo,
 		TweenInfo.new(2.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Position = UDim2.new(0.5, 0, 0, 42) }
+		{ Position = UDim2.fromOffset(0, 8) }
 	):Play()
 	UIKit.text({
 		Text = "Dig up the ENTIRE desert!",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 330),
-		Size = UDim2.fromOffset(700, 44),
+		Size = UDim2.fromOffset(700, 40),
+		LayoutOrder = 2,
 		Font = F.Body,
 		Stroke = 3,
 		ZIndex = 62,
-		Parent = root,
+		Parent = column,
 	})
-
-	local buttons = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 400),
-		Size = UDim2.fromOffset(360, 260),
-		BackgroundTransparency = 1,
-		ZIndex = 62,
-		Parent = root,
-	})
-	new("UIListLayout", {
-		Padding = UDim.new(0, 14),
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Parent = buttons,
-	})
-
+	local buttons = column
 	local finished = false
 	local orbit: RBXScriptConnection? = nil
 	local playHolder, playFace
@@ -7531,19 +9348,19 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 	end
 
 	playHolder, playFace = UIKit.button({
-		Size = UDim2.fromOffset(340, 100),
+		Size = UDim2.fromOffset(340, 96),
 		Color = T.Green,
 		Text = "PLAY!",
-		LayoutOrder = 1,
+		LayoutOrder = 3,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = play,
 	})
 	UIKit.button({
-		Size = UDim2.fromOffset(300, 66),
+		Size = UDim2.fromOffset(300, 64),
 		Color = T.Blue,
 		Text = "🆕 UPDATES",
-		LayoutOrder = 2,
+		LayoutOrder = 4,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = function()
@@ -7556,10 +9373,10 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 	local _, musicFace
 	local musicHolder
 	musicHolder, musicFace = UIKit.button({
-		Size = UDim2.fromOffset(300, 66),
+		Size = UDim2.fromOffset(300, 64),
 		Color = Color3.fromRGB(90, 120, 230),
 		Text = "🎵 MUSIC: ON",
-		LayoutOrder = 3,
+		LayoutOrder = 5,
 		ZIndex = 63,
 		Parent = buttons,
 		OnClick = function()
@@ -7610,13 +9427,12 @@ function MainMenu.show(gui: ScreenGui, callbacks)
 
 	local tip = UIKit.text({
 		Text = "TIP: " .. TIPS[1],
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -24),
-		Size = UDim2.fromOffset(900, 34),
+		Size = UDim2.fromOffset(860, 34),
+		LayoutOrder = 6,
 		Font = F.Body,
 		Stroke = 3,
 		ZIndex = 62,
-		Parent = root,
+		Parent = column,
 	})
 	UIKit.text({
 		Text = "v" .. Config.Version,
@@ -7668,7 +9484,110 @@ return MainMenu
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX0000001F">
+				<Item class="ModuleScript" referent="RBX00000023">
+					<Properties>
+						<string name="Name">PetFollow</string>
+						<ProtectedString name="Source"><![CDATA[--[[
+	PetFollow – mazlíčci plynule chodí (nebo létají) za svými hráči.
+	Server mazlíčky jen vytvoří ve workspace.Pets/<UserId>, pohyb dělá každý klient sám
+	(plynulejší a nezatěžuje server). Navíc se točí vajíčka v Hatchery.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local PetFollow = {}
+
+local hatcheryEggs = {} -- { {Model, Base} }
+
+local function findHatcheryEggs(): boolean
+	table.clear(hatcheryEggs)
+	local map = workspace:FindFirstChild("Map")
+	local hatchery = map and map:FindFirstChild("Hatchery", true)
+	if not hatchery then
+		return false
+	end
+	for _, child in hatchery:GetChildren() do
+		if child:IsA("Model") and child.Name == "HatcheryEgg" then
+			table.insert(hatcheryEggs, { Model = child, Base = child:GetPivot() })
+		end
+	end
+	return #hatcheryEggs > 0
+end
+
+function PetFollow.init()
+	local t = 0
+	-- lobby se může načíst až chvíli po startu klienta – zkoušíme, dokud vajíčka nenajdeme
+	task.spawn(function()
+		for _ = 1, 30 do
+			task.wait(2)
+			if findHatcheryEggs() then
+				break
+			end
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
+		t += dt
+		local alpha = 1 - math.exp(-dt * 10)
+		local petsFolder = workspace:FindFirstChild("Pets")
+		if petsFolder then
+			for _, folder in petsFolder:GetChildren() do
+				local owner = Players:GetPlayerByUserId(tonumber(folder.Name) or 0)
+				local character = owner and owner.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if root and humanoid then
+					local models = folder:GetChildren()
+					table.sort(models, function(a, b)
+						return a.Name < b.Name
+					end)
+					local n = #models
+					local ground = root.Position.Y - (humanoid.HipHeight + root.Size.Y / 2)
+					local moving = humanoid.MoveDirection.Magnitude > 0.1
+					local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+					if look.Magnitude < 0.01 then
+						look = Vector3.new(0, 0, -1)
+					end
+					look = look.Unit
+					for i, model in models do
+						if model:IsA("Model") then
+							local column = i - (n + 1) / 2
+							local spot = root.CFrame * CFrame.new(column * 3.2, 0, 4.2 + math.abs(column) * 0.8)
+							local flying = model:GetAttribute("Flying")
+							local bob = if moving
+								then math.abs(math.sin(t * 9 + i)) * 0.6
+								else math.sin(t * 2 + i) * 0.12 + 0.12
+							local y = ground + bob + (if flying then 1.6 + math.sin(t * 2.5 + i) * 0.3 else 0)
+							local position = Vector3.new(spot.Position.X, y, spot.Position.Z)
+							local target = CFrame.lookAt(position, position + look)
+							local current = model:GetPivot()
+							if (current.Position - position).Magnitude > 60 then
+								model:PivotTo(target) -- teleport (např. do lobby)
+							else
+								model:PivotTo(current:Lerp(target, alpha))
+							end
+						end
+					end
+				end
+			end
+		end
+		-- vajíčka v Hatchery se točí a pohupují
+		for i, egg in hatcheryEggs do
+			if egg.Model.Parent then
+				egg.Model:PivotTo(
+					egg.Base * CFrame.new(0, math.sin(t * 1.6 + i) * 0.25 + 0.25, 0) * CFrame.Angles(0, t * 0.7 + i, 0)
+				)
+			end
+		end
+	end)
+end
+
+return PetFollow
+]]></ProtectedString>
+					</Properties>
+				</Item>
+				<Item class="ModuleScript" referent="RBX00000024">
 					<Properties>
 						<string name="Name">UI</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -7807,7 +9726,7 @@ return UI
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000020">
+				<Item class="ModuleScript" referent="RBX00000025">
 					<Properties>
 						<string name="Name">UIKit</string>
 						<ProtectedString name="Source"><![CDATA[--[[
@@ -8286,12 +10205,13 @@ return UIKit
 ]]></ProtectedString>
 					</Properties>
 				</Item>
-				<Item class="ModuleScript" referent="RBX00000021">
+				<Item class="ModuleScript" referent="RBX00000026">
 					<Properties>
 						<string name="Name">Windows</string>
 						<ProtectedString name="Source"><![CDATA[--[[
 	Windows – okna hry: SHOP (3D náhledy nástrojů), STORE (Robux), REBIRTH,
-	INDEX (artefakty), CODES, TOP (globální žebříček) a SETTINGS.
+	INDEX (artefakty), CODES, TOP (globální žebříček), SETTINGS,
+	EGG (líhnutí vajíček), PETS (mazlíčci) a QUESTS (denní úkoly).
 	Při otevřeném okně se pozadí rozmaže a ztmaví.
 ]]
 
@@ -8305,8 +10225,10 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
 local Util = require(ReplicatedStorage.Shared.Util)
+local HatchFx = require(script.Parent.HatchFx)
 local UIKit = require(script.Parent.UIKit)
 
 local T = UIKit.Theme
@@ -8325,6 +10247,7 @@ local openName: string? = nil
 local state = nil
 local prices = {}
 local spinners = {}
+local questTimer = 0
 
 local TIER_COLORS = { T.Gray, Color3.fromRGB(176, 122, 74), T.Blue, T.Blue, T.Purple, T.Gold, T.Purple, T.Gold }
 
@@ -9356,6 +11279,671 @@ local function buildSettings()
 end
 
 ---------------------------------------------------------------------
+-- 3D náhled mazlíčka / vajíčka v UI
+---------------------------------------------------------------------
+
+local EGG_STYLE = {
+	SandEgg = { Color = Color3.fromRGB(240, 180, 90), Tab = "🥚 SAND", Where = "Sand Egg" },
+	OasisEgg = { Color = Color3.fromRGB(60, 190, 220), Tab = "🌴 OASIS", Where = "Oasis Egg" },
+	PharaohEgg = { Color = Color3.fromRGB(150, 90, 230), Tab = "👑 PHARAOH", Where = "Pharaoh Egg" },
+}
+local eggSpinners = {} -- { Model = Model } – vajíčka v okně Egg se točí
+
+local function modelViewport(parent: Instance, model: Model, size: UDim2, position: UDim2, z: number): ViewportFrame
+	local vp = new("ViewportFrame", {
+		Size = size,
+		Position = position,
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(185, 175, 165),
+		LightColor = Color3.fromRGB(255, 245, 230),
+		LightDirection = Vector3.new(-1, -1.5, -1),
+		ZIndex = z,
+		Parent = parent,
+	})
+	local camera = new("Camera", { FieldOfView = 30, Parent = vp })
+	vp.CurrentCamera = camera
+	model.Parent = vp
+	local ok, cf, bounds = pcall(function()
+		return model:GetBoundingBox()
+	end)
+	local center = if ok and cf then cf.Position else Vector3.new(0, 1.2, 0)
+	local radius = if ok and bounds then math.max(bounds.X, bounds.Y, bounds.Z) else 3
+	-- mazlíčci koukají na -Z, kamera je tedy před nimi
+	camera.CFrame = CFrame.lookAt(center + Vector3.new(radius * 0.6, radius * 0.45, -radius * 1.85), center)
+	return vp
+end
+
+local function rarityOf(petId: string)
+	local pet = Config.PetsById[petId]
+	return pet, Config.Rarities[pet.Rarity]
+end
+
+local function percent(value: number): string
+	return ("+%d%%"):format(math.floor(value * 100 + 0.5))
+end
+
+---------------------------------------------------------------------
+-- EGG – co je uvnitř vajíčka + líhnutí
+---------------------------------------------------------------------
+
+local function buildEgg()
+	local content = newWindow("Egg", "🥚 EGGS", Color3.fromRGB(255, 160, 50), Vector2.new(900, 610))
+	local currentEgg = Config.Eggs[1].Id
+	local pages = {}
+	local hatchButtons = {}
+	local tabList = {}
+	for index, egg in Config.Eggs do
+		local style = EGG_STYLE[egg.Id]
+		tabList[egg.Id] = { Text = style.Tab, Color = style.Color, Order = index, Width = 220 }
+	end
+	local selectTab = tabs(content, tabList, function(key)
+		currentEgg = key
+		for id, page in pages do
+			page.Visible = id == key
+		end
+	end)
+
+	for _, egg in Config.Eggs do
+		local style = EGG_STYLE[egg.Id]
+		local page = new("Frame", {
+			Name = egg.Id,
+			Position = UDim2.fromOffset(0, 66),
+			Size = UDim2.new(1, 0, 1, -66),
+			BackgroundTransparency = 1,
+			ZIndex = 22,
+			Parent = content,
+		})
+		pages[egg.Id] = page
+		-- vlevo: velké vajíčko
+		local stage = new("Frame", {
+			Size = UDim2.fromOffset(250, 330),
+			BackgroundColor3 = UIKit.lighten(style.Color, 0.55),
+			ZIndex = 22,
+			Parent = page,
+		})
+		UIKit.corner(stage, 20)
+		UIKit.stroke(stage, 4, UIKit.darken(style.Color, 0.25))
+		UIKit.shade(stage, 0.25)
+		local eggModel = PetFactory.egg(egg.Id, 1)
+		modelViewport(stage, eggModel, UDim2.fromOffset(250, 240), UDim2.fromOffset(0, 6), 23)
+		table.insert(eggSpinners, { Model = eggModel, Egg = egg.Id })
+		UIKit.text({
+			Text = string.upper(egg.Name),
+			Position = UDim2.fromOffset(10, 244),
+			Size = UDim2.new(1, -20, 0, 40),
+			Font = F.Title,
+			Stroke = 3,
+			ZIndex = 23,
+			Parent = stage,
+		})
+		UIKit.coin(stage, 30, UDim2.fromOffset(62, 290), 23)
+		UIKit.text({
+			Text = Util.formatNumber(egg.Price),
+			Position = UDim2.fromOffset(98, 288),
+			Size = UDim2.fromOffset(120, 34),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = F.Title,
+			TextColor3 = T.Gold,
+			Stroke = 3,
+			ZIndex = 23,
+			Parent = stage,
+		})
+		-- vpravo: mazlíčci a šance
+		UIKit.text({
+			Text = "WHAT'S INSIDE?",
+			Position = UDim2.fromOffset(270, 0),
+			Size = UDim2.fromOffset(590, 32),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = T.Text,
+			Font = F.Title,
+			Stroke = false,
+			ZIndex = 22,
+			Parent = page,
+		})
+		local total = 0
+		for _, entry in egg.Pets do
+			total += entry[2]
+		end
+		for index, entry in egg.Pets do
+			local pet, rarity = rarityOf(entry[1])
+			local card = new("Frame", {
+				Position = UDim2.fromOffset(270 + (index - 1) * 148, 40),
+				Size = UDim2.fromOffset(138, 210),
+				BackgroundColor3 = UIKit.lighten(rarity.Color, 0.72),
+				ZIndex = 22,
+				Parent = page,
+			})
+			UIKit.corner(card, 16)
+			UIKit.stroke(card, 4, rarity.Color)
+			UIKit.shade(card, 0.12)
+			modelViewport(card, PetFactory.build(pet.Id), UDim2.fromOffset(138, 104), UDim2.fromOffset(0, 4), 23)
+			UIKit.text({
+				Text = string.upper(pet.Name),
+				Position = UDim2.fromOffset(6, 108),
+				Size = UDim2.new(1, -12, 0, 26),
+				TextColor3 = T.Text,
+				Font = F.Title,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = card,
+			})
+			UIKit.text({
+				Text = string.upper(pet.Rarity),
+				Position = UDim2.fromOffset(6, 134),
+				Size = UDim2.new(1, -12, 0, 22),
+				TextColor3 = rarity.Color,
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 23,
+				Parent = card,
+			})
+			UIKit.text({
+				Text = percent(pet.Coins) .. " 💰",
+				Position = UDim2.fromOffset(6, 158),
+				Size = UDim2.new(1, -12, 0, 20),
+				TextColor3 = UIKit.darken(T.Green, 0.25),
+				Font = F.Body,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = card,
+			})
+			-- šance (malá cedulka dole)
+			local chance = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 1, -4),
+				Size = UDim2.fromOffset(84, 30),
+				BackgroundColor3 = rarity.Color,
+				ZIndex = 24,
+				Parent = card,
+			})
+			UIKit.corner(chance, 15)
+			UIKit.stroke(chance, 3)
+			local value = entry[2] / total * 100
+			UIKit.text({
+				Text = if value < 10 then ("%.1f%%"):format(value) else ("%d%%"):format(math.floor(value + 0.5)),
+				Size = UDim2.new(1, -8, 1, -4),
+				Position = UDim2.fromOffset(4, 2),
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 25,
+				Parent = chance,
+			})
+		end
+	end
+
+	local inventory = UIKit.text({
+		Text = "",
+		Position = UDim2.fromOffset(270, 340),
+		Size = UDim2.fromOffset(590, 28),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+
+	local busy = false
+	local function hatch(count: number)
+		if busy or not state then
+			return
+		end
+		busy = true
+		local eggId = currentEgg
+		local ok, message, results = Remotes.HatchEgg:InvokeServer(eggId, count)
+		busy = false
+		if ok and type(results) == "table" then
+			Windows.close()
+			HatchFx.play(gui, results, eggId, ctx.sfx)
+		else
+			ctx.toast(message or "", "error")
+			ctx.sfx("Error")
+		end
+	end
+	for index, count in { 1, 3 } do
+		local holder, face = UIKit.button({
+			Size = UDim2.fromOffset(290, 84),
+			Position = UDim2.new(0, 270 + (index - 1) * 300, 1, -90),
+			Color = T.Green,
+			Text = "",
+			ZIndex = 22,
+			Parent = content,
+			OnClick = function()
+				hatch(count)
+			end,
+		})
+		hatchButtons[count] = { Holder = holder, Face = face }
+	end
+
+	windows.Egg.Tab = selectTab
+	windows.Egg.Refresh = function()
+		local egg = Config.EggsById[currentEgg]
+		for count, b in hatchButtons do
+			local cost = egg.Price * count
+			b.Face.Text = ("HATCH %d   💰%s"):format(count, Util.formatNumber(cost))
+			UIKit.setButtonColor(b.Holder, if state.Coins >= cost then T.Green else T.Gray)
+		end
+		local owned = 0
+		for _ in state.Pets or {} do
+			owned += 1
+		end
+		inventory.Text = ("🐾 Your pets: %d / %d   •   Pets give bonus coins and follow you!"):format(
+			owned,
+			Config.MaxPets
+		)
+	end
+	selectTab(Config.Eggs[1].Id)
+end
+
+---------------------------------------------------------------------
+-- PETS – inventář mazlíčků
+---------------------------------------------------------------------
+
+local function buildPets()
+	local content = newWindow("Pets", "🐾 MY PETS", Color3.fromRGB(255, 110, 160), Vector2.new(900, 610))
+	local deleteMode = false
+	local lastKey = ""
+	local summary = UIKit.text({
+		Text = "",
+		Size = UDim2.new(1, -430, 0, 32),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.Text,
+		Font = F.Title,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	local hint = UIKit.text({
+		Text = "",
+		Position = UDim2.fromOffset(0, 34),
+		Size = UDim2.new(1, -430, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	UIKit.button({
+		Size = UDim2.fromOffset(220, 58),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -190, 0, 0),
+		Color = T.Gold,
+		Text = "⭐ EQUIP BEST",
+		ZIndex = 22,
+		Parent = content,
+		OnClick = function()
+			local ok, message = Remotes.EquipBestPets:InvokeServer()
+			ctx.toast(message or "", if ok then "success" else "error")
+			ctx.sfx(if ok then "Buy" else "Error")
+		end,
+	})
+	local deleteHolder, deleteFace = UIKit.button({
+		Size = UDim2.fromOffset(180, 58),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Color = T.Gray,
+		Text = "🗑️ DELETE",
+		ZIndex = 22,
+		Parent = content,
+	})
+	local grid = scroll(content, UDim2.fromOffset(0, 70), UDim2.new(1, 0, 1, -70))
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(128, 160),
+		CellPadding = UDim2.fromOffset(12, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = grid,
+	})
+	local empty = new("Frame", {
+		Position = UDim2.fromOffset(0, 70),
+		Size = UDim2.new(1, 0, 1, -70),
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	UIKit.text({
+		Text = "🥚",
+		Position = UDim2.fromOffset(0, 20),
+		Size = UDim2.new(1, 0, 0, 110),
+		Stroke = false,
+		ZIndex = 23,
+		Parent = empty,
+	})
+	UIKit.text({
+		Text = "NO PETS YET!\nHatch eggs at the HATCHERY in Oasis Town",
+		Position = UDim2.fromOffset(0, 140),
+		Size = UDim2.new(1, 0, 0, 90),
+		TextColor3 = T.Text,
+		Font = F.Title,
+		Stroke = false,
+		ZIndex = 23,
+		Parent = empty,
+	})
+	UIKit.button({
+		Size = UDim2.fromOffset(300, 76),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 250),
+		Color = T.Orange,
+		Text = "🥚 SEE EGGS",
+		ZIndex = 23,
+		Parent = empty,
+		OnClick = function()
+			Windows.open("Egg:SandEgg")
+		end,
+	})
+
+	local function refreshDeleteButton()
+		UIKit.setButtonColor(deleteHolder, if deleteMode then T.Red else T.Gray)
+		deleteFace.Text = if deleteMode then "✅ DONE" else "🗑️ DELETE"
+	end
+
+	local function onCell(uid: string)
+		if deleteMode then
+			local ok, message = Remotes.DeletePet:InvokeServer(uid)
+			ctx.toast(message or "", if ok then "info" else "error")
+			ctx.sfx(if ok then "Click" else "Error")
+		else
+			local ok, message = Remotes.EquipPet:InvokeServer(uid)
+			if not ok then
+				ctx.toast(message or "", "error")
+				ctx.sfx("Error")
+			else
+				ctx.sfx("Click", 0.7, 1.2)
+			end
+		end
+	end
+
+	local function rebuild()
+		for _, child in grid:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		local equipped = {}
+		for _, uid in state.EquippedPets or {} do
+			equipped[uid] = true
+		end
+		local list = {}
+		for uid, petId in state.Pets or {} do
+			if Config.PetsById[petId] then
+				table.insert(list, { Uid = uid, PetId = petId })
+			end
+		end
+		table.sort(list, function(a, b)
+			if (equipped[a.Uid] == true) ~= (equipped[b.Uid] == true) then
+				return equipped[a.Uid] == true
+			end
+			local pa, pb = Config.PetsById[a.PetId], Config.PetsById[b.PetId]
+			if pa.Coins ~= pb.Coins then
+				return pa.Coins > pb.Coins
+			end
+			return a.Uid < b.Uid
+		end)
+		for index, entry in list do
+			local pet, rarity = rarityOf(entry.PetId)
+			local isEquipped = equipped[entry.Uid] == true
+			local cell = new("Frame", {
+				Name = entry.Uid,
+				BackgroundColor3 = UIKit.lighten(rarity.Color, 0.72),
+				LayoutOrder = index,
+				ZIndex = 22,
+				Parent = grid,
+			})
+			UIKit.corner(cell, 16)
+			UIKit.stroke(cell, if isEquipped then 5 else 4, if isEquipped then T.Green else rarity.Color)
+			UIKit.shade(cell, 0.12)
+			modelViewport(cell, PetFactory.build(entry.PetId), UDim2.fromOffset(128, 96), UDim2.fromOffset(0, 4), 23)
+			UIKit.text({
+				Text = string.upper(pet.Name),
+				Position = UDim2.fromOffset(6, 100),
+				Size = UDim2.new(1, -12, 0, 24),
+				TextColor3 = T.Text,
+				Font = F.Title,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = cell,
+			})
+			UIKit.text({
+				Text = percent(pet.Coins) .. " 💰",
+				Position = UDim2.fromOffset(6, 126),
+				Size = UDim2.new(1, -12, 0, 24),
+				TextColor3 = rarity.Color,
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 23,
+				Parent = cell,
+			})
+			if isEquipped then
+				local badge = new("Frame", {
+					Position = UDim2.fromOffset(-6, -6),
+					Size = UDim2.fromOffset(34, 34),
+					BackgroundColor3 = T.Green,
+					ZIndex = 25,
+					Parent = cell,
+				})
+				UIKit.corner(badge, 17)
+				UIKit.stroke(badge, 3)
+				UIKit.text({ Text = "✔", Size = UDim2.fromScale(1, 1), Font = F.Title, ZIndex = 26, Parent = badge })
+			elseif deleteMode then
+				local cross = new("Frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundColor3 = T.Red,
+					BackgroundTransparency = 0.55,
+					ZIndex = 26,
+					Parent = cell,
+				})
+				UIKit.corner(cross, 16)
+				UIKit.text({
+					Text = "🗑️",
+					Size = UDim2.fromScale(1, 0.6),
+					Position = UDim2.fromScale(0, 0.2),
+					Stroke = false,
+					ZIndex = 27,
+					Parent = cross,
+				})
+			end
+			local click = new("TextButton", {
+				Text = "",
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				ZIndex = 28,
+				Parent = cell,
+			})
+			click.Activated:Connect(function()
+				onCell(entry.Uid)
+			end)
+		end
+		empty.Visible = #list == 0
+		grid.Visible = #list > 0
+	end
+
+	deleteFace.Activated:Connect(function()
+		deleteMode = not deleteMode
+		refreshDeleteButton()
+		lastKey = ""
+		if state then
+			windows.Pets.Refresh()
+		end
+	end)
+	refreshDeleteButton()
+
+	windows.Pets.Refresh = function()
+		local owned = 0
+		local parts = {}
+		for uid, petId in state.Pets or {} do
+			owned += 1
+			table.insert(parts, uid .. "=" .. petId)
+		end
+		table.sort(parts)
+		local key = table.concat(parts, ",") .. "|" .. table.concat(state.EquippedPets or {}, ",")
+		if key ~= lastKey then
+			lastKey = key
+			rebuild()
+		end
+		summary.Text = ("EQUIPPED %d/%d  •  %s COINS"):format(
+			#(state.EquippedPets or {}),
+			state.PetSlots or Config.PetSlots,
+			percent(state.PetBonus or 0)
+		)
+		hint.Text = if deleteMode
+			then ("🐾 %d/%d pets  •  tap a pet to DELETE it"):format(owned, Config.MaxPets)
+			else ("🐾 %d/%d pets  •  tap a pet to equip / unequip"):format(owned, Config.MaxPets)
+	end
+end
+
+---------------------------------------------------------------------
+-- QUESTS – denní úkoly
+---------------------------------------------------------------------
+
+local function buildQuests()
+	local content = newWindow("Quests", "📋 DAILY QUESTS", T.Green, Vector2.new(720, 560))
+	local timer = UIKit.text({
+		Text = "",
+		Size = UDim2.new(1, 0, 0, 30),
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	local rows = {}
+	for index = 1, 3 do
+		local row = new("Frame", {
+			Position = UDim2.fromOffset(0, 40 + (index - 1) * 128),
+			Size = UDim2.new(1, 0, 0, 116),
+			BackgroundColor3 = T.PanelDark,
+			ZIndex = 22,
+			Parent = content,
+		})
+		UIKit.corner(row, 18)
+		local stroke = UIKit.stroke(row, 4)
+		local iconBox = new("Frame", {
+			Position = UDim2.fromOffset(14, 14),
+			Size = UDim2.fromOffset(88, 88),
+			BackgroundColor3 = T.Orange,
+			ZIndex = 23,
+			Parent = row,
+		})
+		UIKit.corner(iconBox, 18)
+		UIKit.stroke(iconBox, 3)
+		UIKit.shade(iconBox, 0.25)
+		local icon = UIKit.text({
+			Text = "",
+			Size = UDim2.fromScale(0.8, 0.8),
+			Position = UDim2.fromScale(0.1, 0.1),
+			Stroke = false,
+			ZIndex = 24,
+			Parent = iconBox,
+		})
+		local title = UIKit.text({
+			Text = "",
+			Position = UDim2.fromOffset(118, 12),
+			Size = UDim2.new(1, -320, 0, 38),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = T.Text,
+			Font = F.Title,
+			Stroke = false,
+			ZIndex = 23,
+			Parent = row,
+		})
+		local _, fill, label = UIKit.bar({
+			Position = UDim2.fromOffset(118, 60),
+			Size = UDim2.new(1, -320, 0, 40),
+			Color = T.Green,
+			Parent = row,
+		})
+		local reward = UIKit.text({
+			Text = "",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 8),
+			Size = UDim2.fromOffset(176, 30),
+			Font = F.Title,
+			TextColor3 = T.Gold,
+			Stroke = 2,
+			ZIndex = 23,
+			Parent = row,
+		})
+		local holder, face = UIKit.button({
+			Size = UDim2.fromOffset(176, 62),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 42),
+			Color = T.Gray,
+			Text = "",
+			ZIndex = 23,
+			Parent = row,
+			OnClick = function()
+				local ok, message = Remotes.ClaimQuest:InvokeServer(index)
+				if not ok then
+					ctx.toast(message or "", "error")
+					ctx.sfx("Error")
+				end
+			end,
+		})
+		rows[index] = {
+			Row = row,
+			Stroke = stroke,
+			Icon = icon,
+			Title = title,
+			Fill = fill,
+			Label = label,
+			Reward = reward,
+			Holder = holder,
+			Face = face,
+		}
+	end
+	UIKit.text({
+		Text = "Finish quests to earn bonus coins! New quests every day 🌞",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 26),
+		TextColor3 = T.SubText,
+		Font = F.Small,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+
+	windows.Quests.Refresh = function()
+		local quests = state.Quests
+		local list = type(quests) == "table" and quests.List or {}
+		local now = state.ServerTime or os.time()
+		local left = 86400 - now % 86400
+		timer.Text = ("⏰ New quests in %dh %02dm"):format(left // 3600, (left % 3600) // 60)
+		for index, r in rows do
+			local quest = list[index]
+			local info = quest and Config.QuestsById[quest.Id]
+			r.Row.Visible = info ~= nil
+			if info then
+				local done = quest.Progress >= quest.Target
+				r.Icon.Text = info.Icon
+				r.Title.Text = info.Text:format(Util.formatNumber(quest.Target))
+				r.Fill.Size = UDim2.fromScale(math.max(math.clamp(quest.Progress / quest.Target, 0, 1), 0.02), 1)
+				r.Label.Text = ("%s / %s"):format(Util.formatNumber(quest.Progress), Util.formatNumber(quest.Target))
+				local coins = info.Reward * (quest.Tier or 1) * ((state.Rebirths or 0) + 1)
+				r.Reward.Text = "💰 " .. Util.formatNumber(coins)
+				if quest.Claimed then
+					r.Face.Text = "✅ DONE"
+					UIKit.setButtonColor(r.Holder, T.Gray)
+					r.Stroke.Color = T.Green
+					r.Row.BackgroundColor3 = UIKit.lighten(T.Green, 0.75)
+				elseif done then
+					r.Face.Text = "CLAIM!"
+					UIKit.setButtonColor(r.Holder, T.Green)
+					r.Stroke.Color = T.Gold
+					r.Row.BackgroundColor3 = UIKit.lighten(T.Gold, 0.7)
+				else
+					r.Face.Text = "IN PROGRESS"
+					UIKit.setButtonColor(r.Holder, T.Gray)
+					r.Stroke.Color = T.Outline
+					r.Row.BackgroundColor3 = T.PanelDark
+				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
 -- Veřejné API
 ---------------------------------------------------------------------
 
@@ -9445,9 +12033,26 @@ function Windows.build(screenGui: ScreenGui, context)
 	buildCodes()
 	buildLeaderboard()
 	buildSettings()
+	buildEgg()
+	buildPets()
+	buildQuests()
 
 	-- otáčení 3D náhledů nástrojů (jen když je obchod otevřený)
 	RunService.RenderStepped:Connect(function(dt)
+		if openName == "Egg" then
+			for _, s in eggSpinners do
+				if s.Model.Parent then
+					s.Model:PivotTo(CFrame.Angles(0, os.clock() * 1.2, math.sin(os.clock() * 3) * 0.08))
+				end
+			end
+		end
+		if openName == "Quests" and state and windows.Quests.Refresh then
+			questTimer += dt
+			if questTimer > 1 then
+				questTimer = 0
+				windows.Quests.Refresh()
+			end
+		end
 		if openName ~= "Shop" then
 			return
 		end
@@ -9473,7 +12078,7 @@ return Windows
 				</Item>
 			</Item>
 		</Item>
-		<Item class="StarterCharacterScripts" referent="RBX00000024">
+		<Item class="StarterCharacterScripts" referent="RBX00000029">
 			<Properties>
 				<string name="Name">StarterCharacterScripts</string>
 			</Properties>

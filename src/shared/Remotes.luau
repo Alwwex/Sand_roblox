@@ -16,6 +16,11 @@ local DEFINITIONS = {
 	RedeemCode = "RemoteFunction",
 	GetData = "RemoteFunction",
 	ClaimDaily = "RemoteFunction",
+	HatchEgg = "RemoteFunction",
+	EquipPet = "RemoteFunction",
+	EquipBestPets = "RemoteFunction",
+	DeletePet = "RemoteFunction",
+	ClaimQuest = "RemoteFunction",
 	SaveSettings = "RemoteEvent",
 	-- server -> klient
 	DataSync = "RemoteEvent",

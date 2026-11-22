@@ -26,6 +26,7 @@ local DataService = {}
 
 local sessions = {} -- [Player] = session
 local saveHooks = {} -- funkce volané po uložení (např. žebříčky)
+local coinHooks = {} -- funkce volané při zisku mincí (např. denní úkoly)
 local store = nil
 
 local IS_STUDIO = RunService:IsStudio()
@@ -48,6 +49,11 @@ local function defaultData()
 		LastDaily = 0,
 		LastVipChest = 0,
 		Settings = { Music = 0.5, Sfx = 0.8, LowGfx = false, Popups = true },
+		Pets = {}, -- [uid] = PetId
+		EquippedPets = {}, -- { uid, ... }
+		PetCounter = 0,
+		Hatched = 0,
+		Quests = {}, -- { Day = n, List = { {Id, Target, Progress, Claimed} } }
 		FirstJoin = os.time(),
 	}
 end
@@ -266,6 +272,12 @@ function DataService.buildPayload(session)
 		LastDaily = data.LastDaily,
 		LastVipChest = data.LastVipChest,
 		DailyCooldown = Config.Daily.CooldownHours * 3600,
+		Pets = data.Pets,
+		EquippedPets = data.EquippedPets,
+		PetSlots = Stats.petSlots(session),
+		PetBonus = Stats.petBonus(data),
+		Hatched = data.Hatched,
+		Quests = data.Quests,
 		ServerTime = os.time(),
 	}
 end
@@ -280,6 +292,13 @@ function DataService.addCoins(player: Player, amount: number)
 	session.Data.Coins += amount
 	session.Data.TotalCoins += amount
 	session.Dirty = true
+	for _, hook in coinHooks do
+		hook(player, amount)
+	end
+end
+
+function DataService.onCoins(callback)
+	table.insert(coinHooks, callback)
 end
 
 -- Registrace funkce, která se zavolá po každém uložení dat hráče

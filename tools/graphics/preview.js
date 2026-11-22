@@ -119,7 +119,32 @@ const UI_STATES = {
   menu: { cam: [V(-135, 105, -150), V(0, 22, 6), 40], blur: false },
   hud: { cam: [V(4, 39, -34), V(0, 33, 12), 55], blur: false, character: true },
   shop: { blur: true }, store: { blur: true }, top: { blur: true }, index: { blur: true }, rebirth: { blur: true }, settings: { blur: true },
+  hud2: { cam: [V(4, 39, -34), V(0, 33, 12), 55], blur: false, character: true },
+  egg: { blur: true }, pets: { blur: true }, quests: { blur: true }, hatch: { blur: true },
 };
+
+PREVIEW_SCENES.lobby_hatchery = ({ W, H }) => buildLobby(W, H, { camPos: V(10, 44, 18), camTarget: V(28, 33, 50), fov: 50 });
+PREVIEW_SCENES.lobby_buyer = ({ W, H }) => buildLobby(W, H, { camPos: V(-22, 40, -16), camTarget: V(-44, 33, 0), fov: 50 });
+
+// Studiové náhledy 3D modelů (mazlíčci, vajíčka, nástroje)
+async function buildModels(W, H, name, { camPos, camTarget, fov }) {
+  const data = await load(name);
+  const r = L.setup(W, H, { fov, bloom: 0.3, bloomThreshold: 0.9, env: 0.35, exposure: 1.0 });
+  const { scene, camera } = r;
+  scene.add(L.sky({ top: 0x1565f0, mid: 0x6cc4ff, bottom: 0xffe2a8, sunDir: V(-0.4, 0.35, 1) }));
+  L.lights(scene, { sun: V(-30, 50, -40), target: V(0, 0, 4), shadowSize: 40, sunI: 3.0 });
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(120, 64), new THREE.MeshStandardMaterial({ color: 0xf0c27a, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  for (const p of data.parts) scene.add(partMesh(p));
+  camera.position.copy(camPos);
+  camera.lookAt(camTarget);
+  return r;
+}
+PREVIEW_SCENES.models_pets = ({ W, H }) => buildModels(W, H, 'models_pets', { camPos: V(4, 13, -24), camTarget: V(0, 1.5, 5), fov: 42 });
+PREVIEW_SCENES.models_tools = ({ W, H }) => buildModels(W, H, 'models_tools', { camPos: V(4, 6, -26), camTarget: V(4, 3, 0), fov: 40 });
+PREVIEW_SCENES.models_pets_close = ({ W, H }) => buildModels(W, H, 'models_pets', { camPos: V(9, 4.5, -3), camTarget: V(9, 1.6, 6), fov: 45 });
 for (const [name, cfg] of Object.entries(UI_STATES)) {
   PREVIEW_SCENES['ui_' + name] = async ({ W, H }) => {
     const cam = cfg.cam ?? UI_STATES.hud.cam;

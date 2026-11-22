@@ -1,6 +1,7 @@
 --[[
 	Windows – okna hry: SHOP (3D náhledy nástrojů), STORE (Robux), REBIRTH,
-	INDEX (artefakty), CODES, TOP (globální žebříček) a SETTINGS.
+	INDEX (artefakty), CODES, TOP (globální žebříček), SETTINGS,
+	EGG (líhnutí vajíček), PETS (mazlíčci) a QUESTS (denní úkoly).
 	Při otevřeném okně se pozadí rozmaže a ztmaví.
 ]]
 
@@ -14,8 +15,10 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local PetFactory = require(ReplicatedStorage.Shared.PetFactory)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
 local Util = require(ReplicatedStorage.Shared.Util)
+local HatchFx = require(script.Parent.HatchFx)
 local UIKit = require(script.Parent.UIKit)
 
 local T = UIKit.Theme
@@ -34,6 +37,7 @@ local openName: string? = nil
 local state = nil
 local prices = {}
 local spinners = {}
+local questTimer = 0
 
 local TIER_COLORS = { T.Gray, Color3.fromRGB(176, 122, 74), T.Blue, T.Blue, T.Purple, T.Gold, T.Purple, T.Gold }
 
@@ -1065,6 +1069,671 @@ local function buildSettings()
 end
 
 ---------------------------------------------------------------------
+-- 3D náhled mazlíčka / vajíčka v UI
+---------------------------------------------------------------------
+
+local EGG_STYLE = {
+	SandEgg = { Color = Color3.fromRGB(240, 180, 90), Tab = "🥚 SAND", Where = "Sand Egg" },
+	OasisEgg = { Color = Color3.fromRGB(60, 190, 220), Tab = "🌴 OASIS", Where = "Oasis Egg" },
+	PharaohEgg = { Color = Color3.fromRGB(150, 90, 230), Tab = "👑 PHARAOH", Where = "Pharaoh Egg" },
+}
+local eggSpinners = {} -- { Model = Model } – vajíčka v okně Egg se točí
+
+local function modelViewport(parent: Instance, model: Model, size: UDim2, position: UDim2, z: number): ViewportFrame
+	local vp = new("ViewportFrame", {
+		Size = size,
+		Position = position,
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(185, 175, 165),
+		LightColor = Color3.fromRGB(255, 245, 230),
+		LightDirection = Vector3.new(-1, -1.5, -1),
+		ZIndex = z,
+		Parent = parent,
+	})
+	local camera = new("Camera", { FieldOfView = 30, Parent = vp })
+	vp.CurrentCamera = camera
+	model.Parent = vp
+	local ok, cf, bounds = pcall(function()
+		return model:GetBoundingBox()
+	end)
+	local center = if ok and cf then cf.Position else Vector3.new(0, 1.2, 0)
+	local radius = if ok and bounds then math.max(bounds.X, bounds.Y, bounds.Z) else 3
+	-- mazlíčci koukají na -Z, kamera je tedy před nimi
+	camera.CFrame = CFrame.lookAt(center + Vector3.new(radius * 0.6, radius * 0.45, -radius * 1.85), center)
+	return vp
+end
+
+local function rarityOf(petId: string)
+	local pet = Config.PetsById[petId]
+	return pet, Config.Rarities[pet.Rarity]
+end
+
+local function percent(value: number): string
+	return ("+%d%%"):format(math.floor(value * 100 + 0.5))
+end
+
+---------------------------------------------------------------------
+-- EGG – co je uvnitř vajíčka + líhnutí
+---------------------------------------------------------------------
+
+local function buildEgg()
+	local content = newWindow("Egg", "🥚 EGGS", Color3.fromRGB(255, 160, 50), Vector2.new(900, 610))
+	local currentEgg = Config.Eggs[1].Id
+	local pages = {}
+	local hatchButtons = {}
+	local tabList = {}
+	for index, egg in Config.Eggs do
+		local style = EGG_STYLE[egg.Id]
+		tabList[egg.Id] = { Text = style.Tab, Color = style.Color, Order = index, Width = 220 }
+	end
+	local selectTab = tabs(content, tabList, function(key)
+		currentEgg = key
+		for id, page in pages do
+			page.Visible = id == key
+		end
+	end)
+
+	for _, egg in Config.Eggs do
+		local style = EGG_STYLE[egg.Id]
+		local page = new("Frame", {
+			Name = egg.Id,
+			Position = UDim2.fromOffset(0, 66),
+			Size = UDim2.new(1, 0, 1, -66),
+			BackgroundTransparency = 1,
+			ZIndex = 22,
+			Parent = content,
+		})
+		pages[egg.Id] = page
+		-- vlevo: velké vajíčko
+		local stage = new("Frame", {
+			Size = UDim2.fromOffset(250, 330),
+			BackgroundColor3 = UIKit.lighten(style.Color, 0.55),
+			ZIndex = 22,
+			Parent = page,
+		})
+		UIKit.corner(stage, 20)
+		UIKit.stroke(stage, 4, UIKit.darken(style.Color, 0.25))
+		UIKit.shade(stage, 0.25)
+		local eggModel = PetFactory.egg(egg.Id, 1)
+		modelViewport(stage, eggModel, UDim2.fromOffset(250, 240), UDim2.fromOffset(0, 6), 23)
+		table.insert(eggSpinners, { Model = eggModel, Egg = egg.Id })
+		UIKit.text({
+			Text = string.upper(egg.Name),
+			Position = UDim2.fromOffset(10, 244),
+			Size = UDim2.new(1, -20, 0, 40),
+			Font = F.Title,
+			Stroke = 3,
+			ZIndex = 23,
+			Parent = stage,
+		})
+		UIKit.coin(stage, 30, UDim2.fromOffset(62, 290), 23)
+		UIKit.text({
+			Text = Util.formatNumber(egg.Price),
+			Position = UDim2.fromOffset(98, 288),
+			Size = UDim2.fromOffset(120, 34),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = F.Title,
+			TextColor3 = T.Gold,
+			Stroke = 3,
+			ZIndex = 23,
+			Parent = stage,
+		})
+		-- vpravo: mazlíčci a šance
+		UIKit.text({
+			Text = "WHAT'S INSIDE?",
+			Position = UDim2.fromOffset(270, 0),
+			Size = UDim2.fromOffset(590, 32),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = T.Text,
+			Font = F.Title,
+			Stroke = false,
+			ZIndex = 22,
+			Parent = page,
+		})
+		local total = 0
+		for _, entry in egg.Pets do
+			total += entry[2]
+		end
+		for index, entry in egg.Pets do
+			local pet, rarity = rarityOf(entry[1])
+			local card = new("Frame", {
+				Position = UDim2.fromOffset(270 + (index - 1) * 148, 40),
+				Size = UDim2.fromOffset(138, 210),
+				BackgroundColor3 = UIKit.lighten(rarity.Color, 0.72),
+				ZIndex = 22,
+				Parent = page,
+			})
+			UIKit.corner(card, 16)
+			UIKit.stroke(card, 4, rarity.Color)
+			UIKit.shade(card, 0.12)
+			modelViewport(card, PetFactory.build(pet.Id), UDim2.fromOffset(138, 104), UDim2.fromOffset(0, 4), 23)
+			UIKit.text({
+				Text = string.upper(pet.Name),
+				Position = UDim2.fromOffset(6, 108),
+				Size = UDim2.new(1, -12, 0, 26),
+				TextColor3 = T.Text,
+				Font = F.Title,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = card,
+			})
+			UIKit.text({
+				Text = string.upper(pet.Rarity),
+				Position = UDim2.fromOffset(6, 134),
+				Size = UDim2.new(1, -12, 0, 22),
+				TextColor3 = rarity.Color,
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 23,
+				Parent = card,
+			})
+			UIKit.text({
+				Text = percent(pet.Coins) .. " 💰",
+				Position = UDim2.fromOffset(6, 158),
+				Size = UDim2.new(1, -12, 0, 20),
+				TextColor3 = UIKit.darken(T.Green, 0.25),
+				Font = F.Body,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = card,
+			})
+			-- šance (malá cedulka dole)
+			local chance = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 1, -4),
+				Size = UDim2.fromOffset(84, 30),
+				BackgroundColor3 = rarity.Color,
+				ZIndex = 24,
+				Parent = card,
+			})
+			UIKit.corner(chance, 15)
+			UIKit.stroke(chance, 3)
+			local value = entry[2] / total * 100
+			UIKit.text({
+				Text = if value < 10 then ("%.1f%%"):format(value) else ("%d%%"):format(math.floor(value + 0.5)),
+				Size = UDim2.new(1, -8, 1, -4),
+				Position = UDim2.fromOffset(4, 2),
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 25,
+				Parent = chance,
+			})
+		end
+	end
+
+	local inventory = UIKit.text({
+		Text = "",
+		Position = UDim2.fromOffset(270, 340),
+		Size = UDim2.fromOffset(590, 28),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+
+	local busy = false
+	local function hatch(count: number)
+		if busy or not state then
+			return
+		end
+		busy = true
+		local eggId = currentEgg
+		local ok, message, results = Remotes.HatchEgg:InvokeServer(eggId, count)
+		busy = false
+		if ok and type(results) == "table" then
+			Windows.close()
+			HatchFx.play(gui, results, eggId, ctx.sfx)
+		else
+			ctx.toast(message or "", "error")
+			ctx.sfx("Error")
+		end
+	end
+	for index, count in { 1, 3 } do
+		local holder, face = UIKit.button({
+			Size = UDim2.fromOffset(290, 84),
+			Position = UDim2.new(0, 270 + (index - 1) * 300, 1, -90),
+			Color = T.Green,
+			Text = "",
+			ZIndex = 22,
+			Parent = content,
+			OnClick = function()
+				hatch(count)
+			end,
+		})
+		hatchButtons[count] = { Holder = holder, Face = face }
+	end
+
+	windows.Egg.Tab = selectTab
+	windows.Egg.Refresh = function()
+		local egg = Config.EggsById[currentEgg]
+		for count, b in hatchButtons do
+			local cost = egg.Price * count
+			b.Face.Text = ("HATCH %d   💰%s"):format(count, Util.formatNumber(cost))
+			UIKit.setButtonColor(b.Holder, if state.Coins >= cost then T.Green else T.Gray)
+		end
+		local owned = 0
+		for _ in state.Pets or {} do
+			owned += 1
+		end
+		inventory.Text = ("🐾 Your pets: %d / %d   •   Pets give bonus coins and follow you!"):format(
+			owned,
+			Config.MaxPets
+		)
+	end
+	selectTab(Config.Eggs[1].Id)
+end
+
+---------------------------------------------------------------------
+-- PETS – inventář mazlíčků
+---------------------------------------------------------------------
+
+local function buildPets()
+	local content = newWindow("Pets", "🐾 MY PETS", Color3.fromRGB(255, 110, 160), Vector2.new(900, 610))
+	local deleteMode = false
+	local lastKey = ""
+	local summary = UIKit.text({
+		Text = "",
+		Size = UDim2.new(1, -430, 0, 32),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.Text,
+		Font = F.Title,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	local hint = UIKit.text({
+		Text = "",
+		Position = UDim2.fromOffset(0, 34),
+		Size = UDim2.new(1, -430, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	UIKit.button({
+		Size = UDim2.fromOffset(220, 58),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -190, 0, 0),
+		Color = T.Gold,
+		Text = "⭐ EQUIP BEST",
+		ZIndex = 22,
+		Parent = content,
+		OnClick = function()
+			local ok, message = Remotes.EquipBestPets:InvokeServer()
+			ctx.toast(message or "", if ok then "success" else "error")
+			ctx.sfx(if ok then "Buy" else "Error")
+		end,
+	})
+	local deleteHolder, deleteFace = UIKit.button({
+		Size = UDim2.fromOffset(180, 58),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Color = T.Gray,
+		Text = "🗑️ DELETE",
+		ZIndex = 22,
+		Parent = content,
+	})
+	local grid = scroll(content, UDim2.fromOffset(0, 70), UDim2.new(1, 0, 1, -70))
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(128, 160),
+		CellPadding = UDim2.fromOffset(12, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = grid,
+	})
+	local empty = new("Frame", {
+		Position = UDim2.fromOffset(0, 70),
+		Size = UDim2.new(1, 0, 1, -70),
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	UIKit.text({
+		Text = "🥚",
+		Position = UDim2.fromOffset(0, 20),
+		Size = UDim2.new(1, 0, 0, 110),
+		Stroke = false,
+		ZIndex = 23,
+		Parent = empty,
+	})
+	UIKit.text({
+		Text = "NO PETS YET!\nHatch eggs at the HATCHERY in Oasis Town",
+		Position = UDim2.fromOffset(0, 140),
+		Size = UDim2.new(1, 0, 0, 90),
+		TextColor3 = T.Text,
+		Font = F.Title,
+		Stroke = false,
+		ZIndex = 23,
+		Parent = empty,
+	})
+	UIKit.button({
+		Size = UDim2.fromOffset(300, 76),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 250),
+		Color = T.Orange,
+		Text = "🥚 SEE EGGS",
+		ZIndex = 23,
+		Parent = empty,
+		OnClick = function()
+			Windows.open("Egg:SandEgg")
+		end,
+	})
+
+	local function refreshDeleteButton()
+		UIKit.setButtonColor(deleteHolder, if deleteMode then T.Red else T.Gray)
+		deleteFace.Text = if deleteMode then "✅ DONE" else "🗑️ DELETE"
+	end
+
+	local function onCell(uid: string)
+		if deleteMode then
+			local ok, message = Remotes.DeletePet:InvokeServer(uid)
+			ctx.toast(message or "", if ok then "info" else "error")
+			ctx.sfx(if ok then "Click" else "Error")
+		else
+			local ok, message = Remotes.EquipPet:InvokeServer(uid)
+			if not ok then
+				ctx.toast(message or "", "error")
+				ctx.sfx("Error")
+			else
+				ctx.sfx("Click", 0.7, 1.2)
+			end
+		end
+	end
+
+	local function rebuild()
+		for _, child in grid:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		local equipped = {}
+		for _, uid in state.EquippedPets or {} do
+			equipped[uid] = true
+		end
+		local list = {}
+		for uid, petId in state.Pets or {} do
+			if Config.PetsById[petId] then
+				table.insert(list, { Uid = uid, PetId = petId })
+			end
+		end
+		table.sort(list, function(a, b)
+			if (equipped[a.Uid] == true) ~= (equipped[b.Uid] == true) then
+				return equipped[a.Uid] == true
+			end
+			local pa, pb = Config.PetsById[a.PetId], Config.PetsById[b.PetId]
+			if pa.Coins ~= pb.Coins then
+				return pa.Coins > pb.Coins
+			end
+			return a.Uid < b.Uid
+		end)
+		for index, entry in list do
+			local pet, rarity = rarityOf(entry.PetId)
+			local isEquipped = equipped[entry.Uid] == true
+			local cell = new("Frame", {
+				Name = entry.Uid,
+				BackgroundColor3 = UIKit.lighten(rarity.Color, 0.72),
+				LayoutOrder = index,
+				ZIndex = 22,
+				Parent = grid,
+			})
+			UIKit.corner(cell, 16)
+			UIKit.stroke(cell, if isEquipped then 5 else 4, if isEquipped then T.Green else rarity.Color)
+			UIKit.shade(cell, 0.12)
+			modelViewport(cell, PetFactory.build(entry.PetId), UDim2.fromOffset(128, 96), UDim2.fromOffset(0, 4), 23)
+			UIKit.text({
+				Text = string.upper(pet.Name),
+				Position = UDim2.fromOffset(6, 100),
+				Size = UDim2.new(1, -12, 0, 24),
+				TextColor3 = T.Text,
+				Font = F.Title,
+				Stroke = false,
+				ZIndex = 23,
+				Parent = cell,
+			})
+			UIKit.text({
+				Text = percent(pet.Coins) .. " 💰",
+				Position = UDim2.fromOffset(6, 126),
+				Size = UDim2.new(1, -12, 0, 24),
+				TextColor3 = rarity.Color,
+				Font = F.Title,
+				Stroke = 2,
+				ZIndex = 23,
+				Parent = cell,
+			})
+			if isEquipped then
+				local badge = new("Frame", {
+					Position = UDim2.fromOffset(-6, -6),
+					Size = UDim2.fromOffset(34, 34),
+					BackgroundColor3 = T.Green,
+					ZIndex = 25,
+					Parent = cell,
+				})
+				UIKit.corner(badge, 17)
+				UIKit.stroke(badge, 3)
+				UIKit.text({ Text = "✔", Size = UDim2.fromScale(1, 1), Font = F.Title, ZIndex = 26, Parent = badge })
+			elseif deleteMode then
+				local cross = new("Frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundColor3 = T.Red,
+					BackgroundTransparency = 0.55,
+					ZIndex = 26,
+					Parent = cell,
+				})
+				UIKit.corner(cross, 16)
+				UIKit.text({
+					Text = "🗑️",
+					Size = UDim2.fromScale(1, 0.6),
+					Position = UDim2.fromScale(0, 0.2),
+					Stroke = false,
+					ZIndex = 27,
+					Parent = cross,
+				})
+			end
+			local click = new("TextButton", {
+				Text = "",
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				ZIndex = 28,
+				Parent = cell,
+			})
+			click.Activated:Connect(function()
+				onCell(entry.Uid)
+			end)
+		end
+		empty.Visible = #list == 0
+		grid.Visible = #list > 0
+	end
+
+	deleteFace.Activated:Connect(function()
+		deleteMode = not deleteMode
+		refreshDeleteButton()
+		lastKey = ""
+		if state then
+			windows.Pets.Refresh()
+		end
+	end)
+	refreshDeleteButton()
+
+	windows.Pets.Refresh = function()
+		local owned = 0
+		local parts = {}
+		for uid, petId in state.Pets or {} do
+			owned += 1
+			table.insert(parts, uid .. "=" .. petId)
+		end
+		table.sort(parts)
+		local key = table.concat(parts, ",") .. "|" .. table.concat(state.EquippedPets or {}, ",")
+		if key ~= lastKey then
+			lastKey = key
+			rebuild()
+		end
+		summary.Text = ("EQUIPPED %d/%d  •  %s COINS"):format(
+			#(state.EquippedPets or {}),
+			state.PetSlots or Config.PetSlots,
+			percent(state.PetBonus or 0)
+		)
+		hint.Text = if deleteMode
+			then ("🐾 %d/%d pets  •  tap a pet to DELETE it"):format(owned, Config.MaxPets)
+			else ("🐾 %d/%d pets  •  tap a pet to equip / unequip"):format(owned, Config.MaxPets)
+	end
+end
+
+---------------------------------------------------------------------
+-- QUESTS – denní úkoly
+---------------------------------------------------------------------
+
+local function buildQuests()
+	local content = newWindow("Quests", "📋 DAILY QUESTS", T.Green, Vector2.new(720, 560))
+	local timer = UIKit.text({
+		Text = "",
+		Size = UDim2.new(1, 0, 0, 30),
+		TextColor3 = T.SubText,
+		Font = F.Body,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+	local rows = {}
+	for index = 1, 3 do
+		local row = new("Frame", {
+			Position = UDim2.fromOffset(0, 40 + (index - 1) * 128),
+			Size = UDim2.new(1, 0, 0, 116),
+			BackgroundColor3 = T.PanelDark,
+			ZIndex = 22,
+			Parent = content,
+		})
+		UIKit.corner(row, 18)
+		local stroke = UIKit.stroke(row, 4)
+		local iconBox = new("Frame", {
+			Position = UDim2.fromOffset(14, 14),
+			Size = UDim2.fromOffset(88, 88),
+			BackgroundColor3 = T.Orange,
+			ZIndex = 23,
+			Parent = row,
+		})
+		UIKit.corner(iconBox, 18)
+		UIKit.stroke(iconBox, 3)
+		UIKit.shade(iconBox, 0.25)
+		local icon = UIKit.text({
+			Text = "",
+			Size = UDim2.fromScale(0.8, 0.8),
+			Position = UDim2.fromScale(0.1, 0.1),
+			Stroke = false,
+			ZIndex = 24,
+			Parent = iconBox,
+		})
+		local title = UIKit.text({
+			Text = "",
+			Position = UDim2.fromOffset(118, 12),
+			Size = UDim2.new(1, -320, 0, 38),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = T.Text,
+			Font = F.Title,
+			Stroke = false,
+			ZIndex = 23,
+			Parent = row,
+		})
+		local _, fill, label = UIKit.bar({
+			Position = UDim2.fromOffset(118, 60),
+			Size = UDim2.new(1, -320, 0, 40),
+			Color = T.Green,
+			Parent = row,
+		})
+		local reward = UIKit.text({
+			Text = "",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 8),
+			Size = UDim2.fromOffset(176, 30),
+			Font = F.Title,
+			TextColor3 = T.Gold,
+			Stroke = 2,
+			ZIndex = 23,
+			Parent = row,
+		})
+		local holder, face = UIKit.button({
+			Size = UDim2.fromOffset(176, 62),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 42),
+			Color = T.Gray,
+			Text = "",
+			ZIndex = 23,
+			Parent = row,
+			OnClick = function()
+				local ok, message = Remotes.ClaimQuest:InvokeServer(index)
+				if not ok then
+					ctx.toast(message or "", "error")
+					ctx.sfx("Error")
+				end
+			end,
+		})
+		rows[index] = {
+			Row = row,
+			Stroke = stroke,
+			Icon = icon,
+			Title = title,
+			Fill = fill,
+			Label = label,
+			Reward = reward,
+			Holder = holder,
+			Face = face,
+		}
+	end
+	UIKit.text({
+		Text = "Finish quests to earn bonus coins! New quests every day 🌞",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 26),
+		TextColor3 = T.SubText,
+		Font = F.Small,
+		Stroke = false,
+		ZIndex = 22,
+		Parent = content,
+	})
+
+	windows.Quests.Refresh = function()
+		local quests = state.Quests
+		local list = type(quests) == "table" and quests.List or {}
+		local now = state.ServerTime or os.time()
+		local left = 86400 - now % 86400
+		timer.Text = ("⏰ New quests in %dh %02dm"):format(left // 3600, (left % 3600) // 60)
+		for index, r in rows do
+			local quest = list[index]
+			local info = quest and Config.QuestsById[quest.Id]
+			r.Row.Visible = info ~= nil
+			if info then
+				local done = quest.Progress >= quest.Target
+				r.Icon.Text = info.Icon
+				r.Title.Text = info.Text:format(Util.formatNumber(quest.Target))
+				r.Fill.Size = UDim2.fromScale(math.max(math.clamp(quest.Progress / quest.Target, 0, 1), 0.02), 1)
+				r.Label.Text = ("%s / %s"):format(Util.formatNumber(quest.Progress), Util.formatNumber(quest.Target))
+				local coins = info.Reward * (quest.Tier or 1) * ((state.Rebirths or 0) + 1)
+				r.Reward.Text = "💰 " .. Util.formatNumber(coins)
+				if quest.Claimed then
+					r.Face.Text = "✅ DONE"
+					UIKit.setButtonColor(r.Holder, T.Gray)
+					r.Stroke.Color = T.Green
+					r.Row.BackgroundColor3 = UIKit.lighten(T.Green, 0.75)
+				elseif done then
+					r.Face.Text = "CLAIM!"
+					UIKit.setButtonColor(r.Holder, T.Green)
+					r.Stroke.Color = T.Gold
+					r.Row.BackgroundColor3 = UIKit.lighten(T.Gold, 0.7)
+				else
+					r.Face.Text = "IN PROGRESS"
+					UIKit.setButtonColor(r.Holder, T.Gray)
+					r.Stroke.Color = T.Outline
+					r.Row.BackgroundColor3 = T.PanelDark
+				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
 -- Veřejné API
 ---------------------------------------------------------------------
 
@@ -1154,9 +1823,26 @@ function Windows.build(screenGui: ScreenGui, context)
 	buildCodes()
 	buildLeaderboard()
 	buildSettings()
+	buildEgg()
+	buildPets()
+	buildQuests()
 
 	-- otáčení 3D náhledů nástrojů (jen když je obchod otevřený)
 	RunService.RenderStepped:Connect(function(dt)
+		if openName == "Egg" then
+			for _, s in eggSpinners do
+				if s.Model.Parent then
+					s.Model:PivotTo(CFrame.Angles(0, os.clock() * 1.2, math.sin(os.clock() * 3) * 0.08))
+				end
+			end
+		end
+		if openName == "Quests" and state and windows.Quests.Refresh then
+			questTimer += dt
+			if questTimer > 1 then
+				questTimer = 0
+				windows.Quests.Refresh()
+			end
+		end
 		if openName ~= "Shop" then
 			return
 		end

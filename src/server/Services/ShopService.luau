@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local Stats = require(script.Parent.Stats)
 local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
 local WorldService = require(script.Parent.WorldService)
@@ -72,6 +73,7 @@ function ShopService.sell(player: Player, isAuto: boolean?): number
 	data.Sand = 0
 	DataService.addCoins(player, coins)
 	DataService.markDirty(player)
+	QuestService.progress(player, "Sell", 1)
 	Remotes.Sold:FireClient(player, coins, sand, isAuto == true)
 	return coins
 end

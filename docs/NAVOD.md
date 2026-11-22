@@ -89,6 +89,12 @@ vytvoří kódem při spuštění hry**. Proto je Workspace prázdný.
      Stejné číslo znovu = nástroj schováš / vytáhneš. Poslední zamčený slot ukazuje cenu dalšího nástroje.
    - Když odkopeš písek nad truhlou, rozsvítí se → přijdi k ní a otevři ji (**E** / tap).
    - **⛺ CAMP** tě teleportuje zpět do lobby, **🎁 DAILY** dá denní odměnu, **🏆 TOP** ukáže žebříček.
+   - **🥚 Vajíčka:** v lobby je **EGG HATCHERY** – přijdi k vajíčku a zmáčkni **E** (nebo otevři 🐾 PETS → *SEE EGGS*).
+     Uvidíš, co v něm může být a s jakou šancí. **HATCH 1** / **HATCH 3** = vylíhnutí za mince.
+   - **🐾 PETS:** tvoji mazlíčci. Nasazení mazlíčci chodí za tebou a dávají **bonus k mincím**
+     (3 místa, VIP 4). Klik na mazlíčka = nasadit/sundat, **EQUIP BEST** vybere nejlepší, **DELETE** maže.
+   - **📋 QUESTS:** 3 denní úkoly. Když je úkol hotový, svítí u tlačítka červený vykřičník → **CLAIM!**
+   - **🏊 Oáza:** do vody se dá skočit a plavat, ven vedou schody.
    - **⚙️ SETTINGS**: hlasitost hudby a zvuků, *Low graphics* pro slabší mobily.
 6. Zastav test: **Stop** (Shift+F5).
 
@@ -99,7 +105,8 @@ vytvoří kódem při spuštění hry**. Proto je Workspace prázdný.
 | Místo | K čemu je |
 |---|---|
 | 🏝️ Oáza se zlatou sochou | Střed města, kolem jsou 4 spawny |
-| 💰 SELL STATION (pavilon na západě) | Prodej písku – stoupni na zlatou plochu |
+| 💰 SELL STATION (pavilon na západě) | Prodej písku – stoupni na zlatou plochu (Sand Buyer stojí za pultem vzadu) |
+| 🥚 EGG HATCHERY | 3 podstavce s vajíčky (Sand, Oasis, Pharaoh) – **E** otevře okno vajíčka |
 | 🛒 TOOL SHOP / 🎒 BACKPACKS | Stánky s obchodníky (otevřou obchod) |
 | ♻️ REBIRTH chrám (severovýchod) | Rebirth |
 | 🏆 3 tabule + socha (východ) | Globální žebříčky, socha nejbohatšího hráče |
@@ -324,6 +331,10 @@ Všechno důležité je v **`ReplicatedStorage/Shared/Config`**. Pár příklad�
 | Častější bouře | `Config.Sandstorm.Interval` (sekundy) a `ClearedThreshold` |
 | Víc truhel | `Config.Treasure.StartChests` a `MaxChests` |
 | Jiné zvuky | `Config.Sounds` – vlož `rbxassetid://ČÍSLO` zvuku z Creator Store (*View → Toolbox → Audio*) |
+| Cena vajíčka / šance na mazlíčky | `Config.Eggs` – `Price` a čísla u mazlíčků (váhy, nemusí dávat dohromady 100) |
+| Bonus mazlíčka | `Coins` v `Config.Pets` (0.25 = +25 % mincí) |
+| Víc míst pro mazlíčky | `Config.PetSlots` (VIP má +1), max. počet v inventáři `Config.MaxPets` |
+| Odměny / cíle úkolů | `Config.Quests` – `Targets` (začátečník / střední / pokročilý) a `Reward` |
 
 ### Vlastní modely nástrojů
 Nástroje se staví kódem z kostiček. Chceš hezčí model?
@@ -365,6 +376,10 @@ Nástroje se staví kódem z kostiček. Chceš hezčí model?
 | **Žebříčky jsou prázdné** | Globální žebříčky fungují ve zveřejněné hře (s DataStore). Ve Studiu ukazují jen hráče na serveru; tabule se obnovují každých 90 s. |
 | **Jde vidět skrz písek** | Opraveno ve v1.1 (po kopání se mažou tenké zbytky písku, kamera nesmí do zdí). Pokud to pořád vidíš, pošli screenshot. |
 | **Slabý mobil laguje** | Hráč si zapne *Low graphics* v ⚙️ Settings (vypne prach a třesení kamery). |
+| **Nejde plavat v oáze** | Opraveno ve v1.2 (voda je hluboká 14 studů, vedou do ní schody). |
+| **NPC jsou z kostiček** | NPC se stahují jako Roblox avatary. Když se avatar nenačte (např. ve Studiu bez internetu), použije se náhradní model z kostiček – ve zveřejněné hře budou avatary. |
+| **Mazlíček nechodí za hráčem** | Mazlíčky posouvá klientský skript `PetFollow` – v Outputu hledej červenou chybu. Mazlíčci se objeví asi 1 s po spawnu. |
+| **Hráč má plný inventář mazlíčků** | Limit je `Config.MaxPets` (60). Hráč může mazlíčky smazat v 🐾 PETS → DELETE. |
 
 ---
 

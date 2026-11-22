@@ -129,6 +129,15 @@ CF.__index = function(self, key)
 			local rt = transpose(s.R)
 			return mkCF(-matVec(rt, s.P), rt)
 		end
+	elseif key == "Lerp" then
+		-- zjednodušeně: lineárně pozice i matice (pro testy stačí)
+		return function(s, other, t)
+			local m = {}
+			for i = 1, 9 do
+				m[i] = s.R[i] + (other.R[i] - s.R[i]) * t
+			end
+			return mkCF(s.P + (other.P - s.P) * t, m)
+		end
 	elseif key == "GetComponents" then
 		return function(s)
 			local m = s.R
@@ -413,6 +422,19 @@ local function newInstance(className, name)
 			c:Destroy()
 		end
 	end
+	function methods:GetPivot()
+		if data.CFrame then
+			return obj.CFrame
+		end
+		if data.__pivot then
+			return data.__pivot
+		end
+		local primary = data.PrimaryPart
+		if primary then
+			return primary.CFrame
+		end
+		return CFrame.new()
+	end
 	function methods:PivotTo(cf)
 		data.__pivot = cf
 		if data.CFrame or data.Position then
@@ -674,7 +696,9 @@ mock.dataOf(players).__methods.GetPlayerFromCharacter = function(_, character)
 	return nil
 end
 mock.dataOf(players).__methods.GetPlayerByUserId = function(_, id)
-	for _, p in mock.playerList do
+	-- odzadu: po znovupřipojení platí nejnovější hráč
+	for i = #mock.playerList, 1, -1 do
+		local p = mock.playerList[i]
 		if p.UserId == id then
 			return p
 		end
@@ -932,8 +956,11 @@ mock.newPlayer = function(userId, name)
 		local root = newInstance("Part", "HumanoidRootPart")
 		root.Position = Vector3.new(0, 34, 8)
 		root.Parent = character
+		root.Size = Vector3.new(2, 2, 1)
 		local humanoid = newInstance("Humanoid", "Humanoid")
 		humanoid.Health = 100
+		humanoid.HipHeight = 2
+		humanoid.MoveDirection = Vector3.new(0, 0, 0)
 		humanoid.Parent = character
 		local backpack = newInstance("Backpack", "Backpack")
 		backpack.Parent = self

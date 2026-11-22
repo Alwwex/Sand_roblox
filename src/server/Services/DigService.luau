@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local ShopService = require(script.Parent.ShopService)
 local Stats = require(script.Parent.Stats)
 local TreasureService = require(script.Parent.TreasureService)
@@ -96,6 +97,7 @@ local function handleDig(player: Player, target)
 	data.Sand += gained
 	data.TotalSand += gained
 	DataService.markDirty(player)
+	QuestService.progress(player, "Dig", gained)
 	Remotes.DigResult:FireClient(player, gained, target, data.Sand >= capacity)
 
 	TreasureService.onDig(player, target, tool.Radius)

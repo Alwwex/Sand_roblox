@@ -20,10 +20,28 @@ function Stats.artifactBonus(data): number
 	return bonus
 end
 
+-- Součet bonusů nasazených mazlíčků (0.25 = +25 %)
+function Stats.petBonus(data): number
+	local bonus = 0
+	for _, uid in data.EquippedPets or {} do
+		local petId = data.Pets[uid]
+		local pet = petId and Config.PetsById[petId]
+		if pet then
+			bonus += pet.Coins
+		end
+	end
+	return bonus
+end
+
+function Stats.petSlots(session): number
+	return Config.PetSlots + (if session.Passes.VIP then 1 else 0)
+end
+
 function Stats.coinMultiplier(session): number
 	local data = session.Data
 	local multiplier = 1 + data.Rebirths * Config.Rebirth.MultiplierPerRebirth
 	multiplier *= 1 + Stats.artifactBonus(data)
+	multiplier *= 1 + Stats.petBonus(data)
 	if session.Passes.DoubleCoins then
 		multiplier *= Config.PassEffects.DoubleCoins
 	end

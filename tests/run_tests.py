@@ -16,8 +16,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
-SHARED = ["Config", "Remotes", "Util", "ToolFactory"]
-CLIENT = ["UIKit", "Audio", "Effects", "Hotbar", "Hud", "Windows", "MainMenu", "DigController", "UI"]
+SHARED = ["Config", "Remotes", "Util", "ToolFactory", "PetFactory"]
+CLIENT = [
+    "UIKit",
+    "Audio",
+    "Effects",
+    "HatchFx",
+    "PetFollow",
+    "Hotbar",
+    "Hud",
+    "Windows",
+    "MainMenu",
+    "DigController",
+    "UI",
+]
 SERVICES = [
     "Build",
     "LobbyBuilder",
@@ -31,6 +43,8 @@ SERVICES = [
     "SandstormService",
     "RewardService",
     "LeaderboardService",
+    "QuestService",
+    "PetService",
 ]
 
 

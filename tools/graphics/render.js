@@ -28,6 +28,16 @@ const JOBS = [
   ['ui_index', 1920, 1080],
   ['ui_rebirth', 1920, 1080],
   ['ui_settings', 1920, 1080],
+  ['ui_hud2', 1920, 1080],
+  ['ui_egg', 1920, 1080],
+  ['ui_pets', 1920, 1080],
+  ['ui_quests', 1920, 1080],
+  ['ui_hatch', 1920, 1080],
+  ['lobby_hatchery', 1920, 1080],
+  ['lobby_buyer', 1920, 1080],
+  ['models_pets', 1920, 1080],
+  ['models_tools', 1920, 1080],
+  ['models_pets_close', 1920, 1080],
 ];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/woff2', '.png': 'image/png', '.json': 'application/json' };
 

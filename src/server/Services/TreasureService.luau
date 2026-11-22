@@ -13,6 +13,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local Stats = require(script.Parent.Stats)
 local WorldService = require(script.Parent.WorldService)
 
@@ -91,6 +92,92 @@ local function buildChest(rarityName: string, cframe: CFrame, isRelic: boolean)
 		Enum.Material.Neon
 	)
 	lock.CanCollide = false
+
+	-- detaily: prkna, kovové rohy, nožičky
+	local dark = bodyColor:Lerp(Color3.new(0, 0, 0), 0.35)
+	for _, y in { -0.35, 0.3 } do
+		chestPart(
+			model,
+			"Plank",
+			Vector3.new(3.02, 0.07, 2.02) * scale,
+			cframe * CFrame.new(0, y * scale, 0),
+			dark,
+			material
+		)
+	end
+	for _, x in { -1.4, 1.4 } do
+		for _, z in { -0.9, 0.9 } do
+			chestPart(
+				model,
+				"Corner",
+				Vector3.new(0.28, 1.86, 0.28) * scale,
+				cframe * CFrame.new(x * scale, 0, z * scale),
+				gold,
+				Enum.Material.Metal
+			)
+			chestPart(
+				model,
+				"Foot",
+				Vector3.new(0.4, 0.2, 0.4) * scale,
+				cframe * CFrame.new(x * scale, -1 * scale, z * scale),
+				dark,
+				Enum.Material.Metal
+			)
+		end
+	end
+	if rarity.Order >= 2 then
+		local gem = chestPart(
+			model,
+			"Gem",
+			Vector3.new(0.28, 0.28, 0.12) * scale,
+			cframe * CFrame.new(0, 0.95 * scale, -1.18 * scale) * CFrame.Angles(0, 0, math.rad(45)),
+			rarity.Color:Lerp(Color3.new(1, 1, 1), 0.3),
+			Enum.Material.Neon
+		)
+		gem.CanCollide = false
+	end
+	-- víko: oblá kopule + zlaté pásy (přivařené k víku, otevírají se s ním)
+	local lidPieces = {
+		{
+			"LidDome",
+			Vector3.new(3, 0.9, 2) * scale,
+			CFrame.new(0, 0.35 * scale, 0),
+			bodyColor:Lerp(Color3.new(1, 1, 1), 0.12),
+			material,
+			true,
+		},
+		{
+			"LidBandL",
+			Vector3.new(0.26, 0.8, 2.06) * scale,
+			CFrame.new(-1.05 * scale, 0.05 * scale, 0),
+			gold,
+			Enum.Material.Metal,
+			false,
+		},
+		{
+			"LidBandR",
+			Vector3.new(0.26, 0.8, 2.06) * scale,
+			CFrame.new(1.05 * scale, 0.05 * scale, 0),
+			gold,
+			Enum.Material.Metal,
+			false,
+		},
+	}
+	for _, info in lidPieces do
+		local piece = chestPart(model, info[1], info[2], lid.CFrame * info[3], info[4], info[5])
+		piece.Anchored = false
+		piece.CanCollide = false
+		piece.Massless = true
+		if info[6] then
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = piece
+		end
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = lid
+		weld.Part1 = piece
+		weld.Parent = piece
+	end
 
 	model.PrimaryPart = base
 
@@ -264,6 +351,7 @@ local function openChest(model: Model, info, player: Player)
 	coins = math.floor(coins)
 	DataService.addCoins(player, coins)
 	data.ChestsOpened += 1
+	QuestService.progress(player, "Chests", 1)
 	DataService.markDirty(player)
 
 	local position = (model.PrimaryPart :: BasePart).Position

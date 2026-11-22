@@ -5,6 +5,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 
@@ -16,6 +17,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local Audio = require(script.Parent:WaitForChild("Audio"))
 local DigController = require(script.Parent:WaitForChild("DigController"))
 local Effects = require(script.Parent:WaitForChild("Effects"))
+local PetFollow = require(script.Parent:WaitForChild("PetFollow"))
 local UI = require(script.Parent:WaitForChild("UI"))
 
 local player = Players.LocalPlayer
@@ -81,6 +83,7 @@ end)
 Audio.init()
 UI.init({ sfx = Audio.sfx, settingsChanged = onSettingsChanged, toggleMusic = toggleMusic })
 DigController.init()
+PetFollow.init()
 applySettings()
 Audio.setMenu(true)
 
@@ -88,6 +91,13 @@ UI.showMenu(function()
 	Audio.setMenu(false)
 	UI.setHudVisible(true)
 	Audio.sfx("Open", 0.6)
+	-- Upozornění jen pro vývojáře ve Studiu: hudba ještě není nahraná
+	if RunService:IsStudio() and Config.Music.Lobby == "" then
+		task.delay(1.5, function()
+			UI.toast("🎵 No music yet: upload assets/audio files (docs/NAVOD.md 6.5)", "storm")
+			UI.toast("(Only you see this message in Studio)", "info")
+		end)
+	end
 end)
 
 local function applyState(newState)
@@ -203,7 +213,9 @@ end)
 
 Remotes.Reward.OnClientEvent:Connect(function(kind, coins)
 	UI.bigPopup(
-		(if kind == "Vip" then "👑 VIP " else "🎁 DAILY ") .. "+" .. Util.formatNumber(coins),
+		(if kind == "Vip" then "👑 VIP " elseif kind == "Quest" then "📋 QUEST " else "🎁 DAILY ")
+			.. "+"
+			.. Util.formatNumber(coins),
 		Color3.fromRGB(150, 255, 150)
 	)
 	UI.flyCoins(10)

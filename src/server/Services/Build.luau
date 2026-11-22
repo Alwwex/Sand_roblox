@@ -2,7 +2,13 @@
 	Build – pomocné funkce pro stavění mapy z Partů (používá WorldService a LobbyBuilder).
 ]]
 
+local Players = game:GetService("Players")
+
 local Build = {}
+
+-- Výchozí animace Robloxu (veřejné, fungují v každé hře)
+local IDLE_ANIMATION = "rbxassetid://507766666"
+local WAVE_ANIMATION = "rbxassetid://507770239"
 
 local DARK = Color3.fromRGB(60, 35, 15)
 
@@ -252,6 +258,122 @@ function Build.npc(parent: Instance, cframe: CFrame, colors, name: string?): Mod
 		Build.billboard(head, name, Color3.fromRGB(255, 236, 170), Vector2.new(8, 1.6), 2.2, Enum.Font.FredokaOne)
 	end
 	return npc
+end
+
+-- Skutečný Roblox avatar jako NPC (R15, výchozí obličej, barvy oblečení, klobouk,
+-- animace idle + občas zamává). Když to nejde (např. v testech), použije Build.npc.
+function Build.avatarNpc(parent: Instance, cframe: CFrame, colors, name: string?, statue: boolean?): Model
+	local c = colors or {}
+	local ok, model = pcall(function()
+		local description = Instance.new("HumanoidDescription")
+		description.HeadColor = c.Skin or Color3.fromRGB(247, 197, 142)
+		description.LeftArmColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.RightArmColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.TorsoColor = c.Shirt or Color3.fromRGB(230, 210, 170)
+		description.LeftLegColor = c.Pants or Color3.fromRGB(110, 74, 44)
+		description.RightLegColor = c.Pants or Color3.fromRGB(110, 74, 44)
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not model then
+		return Build.npc(parent, cframe, colors, name)
+	end
+	model.Name = name or "NPC"
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local head = model:FindFirstChild("Head") :: BasePart?
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false -- hráči NPC projdou, nepřekáží
+			if statue then
+				part.Anchored = true
+				part.Material = c.Material or Enum.Material.Metal
+			end
+		elseif statue and part:IsA("Decal") then
+			part.Transparency = 0.6 -- obličej sochy jen naznačený
+		end
+	end
+	if root then
+		root.Anchored = true
+	end
+	local lift = 3
+	if humanoid and root then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		lift = humanoid.HipHeight + root.Size.Y / 2
+	end
+	model:PivotTo(cframe * CFrame.new(0, lift, 0))
+	-- klobouk z partů přivařený k hlavě
+	if head then
+		local hat = c.Hat or Color3.fromRGB(255, 122, 26)
+		local brim = Instance.new("Part")
+		brim.Name = "HatBrim"
+		brim.Shape = Enum.PartType.Cylinder
+		brim.Size = Vector3.new(0.14, 2.1, 2.1)
+		brim.Color = hat
+		brim.CanCollide = false
+		brim.Massless = true
+		brim.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.05, 0) * CFrame.Angles(0, 0, math.rad(90))
+		brim.Parent = model
+		local top = Instance.new("Part")
+		top.Name = "HatTop"
+		top.Size = Vector3.new(1.3, 0.75, 1.3)
+		top.Color = hat
+		top.CanCollide = false
+		top.Massless = true
+		top.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.38, 0)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = top
+		top.Parent = model
+		local band = Instance.new("Part")
+		band.Name = "HatBand"
+		band.Shape = Enum.PartType.Cylinder
+		band.Size = Vector3.new(0.2, 1.34, 1.34)
+		band.Color = Color3.fromRGB(80, 50, 22)
+		band.CanCollide = false
+		band.Massless = true
+		band.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 0.18, 0) * CFrame.Angles(0, 0, math.rad(90))
+		band.Parent = model
+		for _, piece in { brim, top, band } do
+			if statue then
+				piece.Anchored = true
+				piece.Material = c.Material or Enum.Material.Metal
+			end
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = head
+			weld.Part1 = piece
+			weld.Parent = piece
+		end
+		if name then
+			Build.billboard(head, name, Color3.fromRGB(255, 236, 170), Vector2.new(8, 1.6), 2.6, Enum.Font.FredokaOne)
+		end
+	end
+	model.Parent = parent
+	-- animace (idle stále, zamávání občas) – socha se nehýbe
+	if humanoid and not statue then
+		task.spawn(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+			animator.Parent = humanoid
+			local idleAnim = Instance.new("Animation")
+			idleAnim.AnimationId = IDLE_ANIMATION
+			local waveAnim = Instance.new("Animation")
+			waveAnim.AnimationId = WAVE_ANIMATION
+			local okIdle, idle = pcall(function()
+				return animator:LoadAnimation(idleAnim)
+			end)
+			if okIdle and idle then
+				idle.Looped = true
+				idle:Play()
+			end
+			local okWave, wave = pcall(function()
+				return animator:LoadAnimation(waveAnim)
+			end)
+			while okWave and wave and model.Parent do
+				task.wait(math.random(7, 14))
+				wave:Play()
+			end
+		end)
+	end
+	return model
 end
 
 -- Bedna / sud / dekorace
