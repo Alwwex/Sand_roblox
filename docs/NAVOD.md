@@ -16,6 +16,7 @@ zapnutím ukládání, vytvořením gamepassů, nastavením stránky hry a úpra
 4. [Publikování na Roblox](#4-publikování-na-roblox)
 5. [Zapnutí ukládání dat](#5-zapnutí-ukládání-dat)
 6. [Gamepassy a developer produkty](#6-gamepassy-a-developer-produkty)
+   - [6.5 Hudba a zvuky](#65-hudba-a-zvuky)
 7. [Nastavení stránky hry (ikona, obrázky, popis)](#7-nastavení-stránky-hry)
 8. [Zveřejnění hry pro všechny](#8-zveřejnění-hry-pro-všechny)
 9. [Roblox skupina a kódy](#9-roblox-skupina-a-kódy)
@@ -77,13 +78,33 @@ vytvoří kódem při spuštění hry**. Proto je Workspace prázdný.
    [Dune Diggers] Svět hotový za 2.3 s
    ```
    a pravděpodobně žluté varování, že se data **neukládají** a gamepassy nemají ID – to je zatím v pořádku (vyřešíme v krocích 5 a 6).
-4. **Jak se hraje:**
-   - Drž **levé tlačítko myši** (na mobilu prst) → kopeš tam, kam míříš.
-   - Písek se ukládá do batohu (lišta dole). Když je plný, běž na **zlatou plochu „SELL SAND"** v táboře.
-   - Za mince kupuj lepší nástroje a batohy (**🛒 SHOP** vlevo).
+4. Objeví se **hlavní menu** (kamera krouží nad městem). Klikni **PLAY!**
+   (dokud se poušť generuje, tlačítko ukazuje *LOADING...*).
+5. **Jak se hraje:**
+   - Začínáš v lobby **Oasis Town** (město s oázou uprostřed pouště). Vyjdi kteroukoliv **branou** ven.
+   - Drž **levé tlačítko myši** (na mobilu prst) → kopeš tam, kam míříš. V lobby se kopat nedá.
+   - Písek se ukládá do batohu (lišta dole). Když je plný, vrať se na **zlatou plochu „SELL SAND"** v pavilonu.
+   - Nástroje a batohy kupuješ v **🛒 SHOP** (tlačítko vlevo, nebo u stánků **TOOL SHOP** / **BACKPACKS**).
    - Když odkopeš písek nad truhlou, rozsvítí se → přijdi k ní a otevři ji (**E** / tap).
-   - **⛺ CAMP** tě teleportuje zpět do tábora.
-5. Zastav test: **Stop** (Shift+F5).
+   - **⛺ CAMP** tě teleportuje zpět do lobby, **🎁 DAILY** dá denní odměnu, **🏆 TOP** ukáže žebříček.
+   - **⚙️ SETTINGS**: hlasitost hudby a zvuků, *Low graphics* pro slabší mobily.
+6. Zastav test: **Stop** (Shift+F5).
+
+### Co je v lobby (Oasis Town)
+
+![Lobby shora](preview/01_lobby_shora.jpg)
+
+| Místo | K čemu je |
+|---|---|
+| 🏝️ Oáza se zlatou sochou | Střed města, kolem jsou 4 spawny |
+| 💰 SELL STATION (pavilon na západě) | Prodej písku – stoupni na zlatou plochu |
+| 🛒 TOOL SHOP / 🎒 BACKPACKS | Stánky s obchodníky (otevřou obchod) |
+| ♻️ REBIRTH chrám (severovýchod) | Rebirth |
+| 🏆 3 tabule + socha (východ) | Globální žebříčky, socha nejbohatšího hráče |
+| ⭐ GAMEPASSES (jih) | Zářící koule – přijdi a kup gamepass |
+| 👑 VIP LOUNGE (jihozápad) | Jen pro VIP: VIP truhla s odměnou |
+| 🎁 DAILY REWARD (sever) | Denní truhla |
+| 🚪 4 brány | Ven do pouště (rampy dolů se odkryjí, až hráči vykopou písek kolem) |
 
 > 🧪 Tip na testování: v `Config` nastav `Testing.StudioStartCoins = 1000000`
 > a ve Studiu budeš mít hned milion mincí. `Testing.GiveAllPassesInStudio = true`
@@ -182,6 +203,42 @@ VIP = {
 - Funkce gamepassu se aktivuje hned (bez nutnosti se odpojit).
 - Pozor: ve Studiu Roblox **nepamatuje** koupené gamepassy mezi testy. Na trvalé testování použij `Testing.GiveAllPassesInStudio = true`.
 - V Output nesmí být varování `Gamepassy bez ID` – pokud ano, nějaké ID chybí.
+
+### 6.5 Hudba a zvuky
+
+Hra má **vlastní originální hudbu a zvuky** (složené kódem, žádná autorská práva) ve složce
+**`assets/audio/`**. Roblox ale neumí přehrát zvuk přímo z place souboru – musíš je jednou nahrát:
+
+| Soubor | Kam vložit ID v `Config` | Kdy hraje |
+|---|---|---|
+| `music_oasis.ogg` | `Config.Music.Lobby` | hlavní menu a lobby |
+| `music_desert.ogg` | `Config.Music.Desert` | kopání v poušti |
+| `music_storm.ogg` | `Config.Music.Storm` | písečná bouře |
+| `ambience_wind.ogg` | `Config.Music.Ambience` | vítr venku v poušti |
+| `sfx_pack.ogg` | `Config.SfxPack` | všechny zvukové efekty (kopání, mince, truhly…) v jednom souboru |
+
+1. Jdi na <https://create.roblox.com> → **Creations → Development Items → Audio**
+   (případně ve Studiu *View → Asset Manager → Import*).
+2. Nahraj všech 5 souborů (každý zvlášť, název třeba „Dune Diggers – Desert Music“).
+3. U každého zkopíruj **ID** (⋯ → *Copy Asset ID*).
+4. V `Config` je vlož ve tvaru `"rbxassetid://ČÍSLO"`:
+   ```lua
+   Config.Music = {
+       Lobby = "rbxassetid://1234567890",
+       Desert = "rbxassetid://1234567891",
+       Storm = "rbxassetid://1234567892",
+       Ambience = "rbxassetid://1234567893",
+       Volume = 0.5,
+   }
+   Config.SfxPack = "rbxassetid://1234567894"
+   ```
+5. **Publish** a vyzkoušej (Play). Dokud ID chybí, hra jede bez hudby a použije záložní vestavěné zvuky.
+
+> ⚠️ Nahrávání zvuků má měsíční limit (podle ověření účtu) – 5 souborů se vejde.
+> Pokud hra patří **skupině**, nahraj zvuky pod skupinou (jinak je hra nesmí použít).
+>
+> Chceš jinou hudbu? Uprav `tools/audio/compose.py` (tempo, melodie) a spusť
+> `python3 tools/audio/compose.py` – vytvoří nové soubory.
 
 ---
 
@@ -302,6 +359,10 @@ Nástroje se staví kódem z kostiček. Chceš hezčí model?
 | **Batoh je plný** | Prodej na zlaté ploše v táboře (⛺ CAMP tě tam teleportuje), nebo kup Auto Sell. |
 | **Chci začít data od nuly** | Změň `STORE_NAME` v `DataService` (např. `_v2`) – všichni začnou znovu. ⚠️ Ve zveřejněné hře to nedělej! |
 | **Chyba po úpravě Configu** | Nejspíš chybí čárka nebo uvozovka. Output ukáže číslo řádku. |
+| **Nehraje hudba** | Chybí ID v `Config.Music` (krok 6.5), nebo zvuk nahrál jiný účet než vlastník hry. V Settings zkontroluj hlasitost. |
+| **Žebříčky jsou prázdné** | Globální žebříčky fungují ve zveřejněné hře (s DataStore). Ve Studiu ukazují jen hráče na serveru; tabule se obnovují každých 90 s. |
+| **Jde vidět skrz písek** | Opraveno ve v1.1 (po kopání se mažou tenké zbytky písku, kamera nesmí do zdí). Pokud to pořád vidíš, pošli screenshot. |
+| **Slabý mobil laguje** | Hráč si zapne *Low graphics* v ⚙️ Settings (vypne prach a třesení kamery). |
 
 ---
 
@@ -326,6 +387,7 @@ Automatické testy logiky: [tests/README.md](../tests/README.md).
 - [ ] Zapnuté *Studio Access to API Services* a otestované ukládání (odejdi a vrať se – mince zůstanou)
 - [ ] 6 gamepassů vytvořeno, **For Sale**, ID v Configu
 - [ ] 4 developer produkty vytvořeny, ID v Configu
+- [ ] 5 zvukových souborů nahráno, ID v `Config.Music` a `Config.SfxPack`
 - [ ] V Output **není** varování `Gamepassy bez ID`
 - [ ] `Testing.GiveAllPassesInStudio = false` a `Testing.StudioStartCoins = 0`
 - [ ] Ikona 512×512 + aspoň 3 thumbnaily 1920×1080

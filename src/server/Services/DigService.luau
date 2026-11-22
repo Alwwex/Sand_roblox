@@ -63,7 +63,11 @@ local function handleDig(player: Player, target)
 	end
 
 	-- Dosah
-	if (target - root.Position).Magnitude > tool.Reach + 8 or not WorldService.inBounds(target) then
+	if
+		(target - root.Position).Magnitude > tool.Reach + 8
+		or not WorldService.inBounds(target)
+		or WorldService.isInLobby(target) -- v lobby se nekope (voda, dlažba)
+	then
 		return
 	end
 

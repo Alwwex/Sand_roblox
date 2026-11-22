@@ -13,25 +13,34 @@
 local Config = {}
 
 Config.GameName = "Dune Diggers"
+Config.Version = "1.1"
+Config.Changelog = {
+	"🏝️ NEW lobby: Oasis Town",
+	"🏆 Global leaderboards + #1 statue",
+	"🎵 Original music & sounds",
+	"🎁 Daily rewards & VIP lounge",
+	"✨ Brand new UI & main menu",
+	"🧱 Fixed see-through sand",
+}
 
 ---------------------------------------------------------------------
 -- SVĚT (poušť)
 ---------------------------------------------------------------------
 Config.World = {
-	Size = 512, -- velikost pouště (čtverec, ve studs). Musí být dělitelné 64.
+	Size = 640, -- velikost pouště (čtverec, ve studs). Musí být dělitelné 64.
 	BaseSandHeight = 26, -- průměrná hloubka písku
 	DuneHeight = 18, -- jak vysoké jsou duny
 	DuneScale = 150, -- jak široké jsou duny (větší = širší a plynulejší)
 	MinSand = 6, -- minimální hloubka písku
 	MaxSand = 60, -- maximální hloubka písku (max 64)
 
-	CampHalf = 32, -- polovina šířky tábora uprostřed mapy
-	CampTop = 30, -- výška tábora (horní plocha)
+	CampHalf = 60, -- polovina šířky lobby (Oasis Town) uprostřed mapy
+	CampTop = 30, -- výška lobby (horní plocha)
 
 	RuinsRadius = 22, -- velikost zasypaných ruin
 	RuinsBuryHeight = 24, -- jak hluboko jsou ruiny zasypané (výška písku nad nimi)
-	RuinsMinDistance = 120, -- vzdálenost ruin od tábora
-	RuinsMaxDistance = 180,
+	RuinsMinDistance = 150, -- vzdálenost ruin od středu
+	RuinsMaxDistance = 240,
 }
 
 -- Kolik "písku" dostaneš za 1 plný voxel terénu (4x4x4 studs)
@@ -51,8 +60,32 @@ Config.Rebirth = {
 	MultiplierPerRebirth = 0.5, -- +50 % mincí za každý rebirth
 }
 
-Config.CampTeleportCooldown = 10 -- sekundy mezi teleporty do tábora
+Config.CampTeleportCooldown = 10 -- sekundy mezi teleporty do lobby
 Config.RespawnTime = 3
+
+-- Kamera (nedovolí kameře zajet do písku/zdí)
+Config.Camera = {
+	MaxZoom = 70,
+	MinZoom = 0.5,
+}
+
+---------------------------------------------------------------------
+-- DENNÍ ODMĚNY
+---------------------------------------------------------------------
+Config.Daily = {
+	Coins = 400, -- denní truhla v lobby (× počet rebirthů + 1)
+	VipCoins = 2500, -- VIP truhla ve VIP salonku (× počet rebirthů + 1)
+	CooldownHours = 20, -- jak často jde odměnu vybrat
+}
+
+---------------------------------------------------------------------
+-- ŽEBŘÍČKY (globální, přes všechny servery)
+---------------------------------------------------------------------
+Config.Leaderboard = {
+	RefreshSeconds = 90, -- jak často se tabule obnovují
+	Size = 10, -- kolik hráčů se zobrazuje
+	Version = "v1", -- změnou se žebříčky vynulují
+}
 
 ---------------------------------------------------------------------
 -- NÁSTROJE
@@ -292,8 +325,39 @@ Config.Codes = {
 }
 
 ---------------------------------------------------------------------
--- ZVUKY (rbxasset = vestavěné zvuky Robloxu; můžeš dát rbxassetid://ČÍSLO)
+-- HUDBA A ZVUKY
+-- Originální hudba a zvuky jsou ve složce assets/audio/ v projektu.
+-- Nahraj je na Roblox (create.roblox.com > Development Items > Audio)
+-- a vlož sem jejich ID ve tvaru "rbxassetid://123456789".
+-- Návod: docs/NAVOD.md, sekce "Hudba a zvuky".
 ---------------------------------------------------------------------
+Config.Music = {
+	Lobby = "", -- assets/audio/music_oasis.ogg   (menu a lobby)
+	Desert = "", -- assets/audio/music_desert.ogg (kopání v poušti)
+	Storm = "", -- assets/audio/music_storm.ogg   (písečná bouře)
+	Ambience = "", -- assets/audio/ambience_wind.ogg (vítr v poušti)
+	Volume = 0.5,
+}
+
+-- Všechny zvukové efekty jsou v JEDNOM souboru assets/audio/sfx_pack.ogg
+-- (stačí jedno nahrání). Tady jsou jejich časy v sekundách – neměnit.
+Config.SfxPack = ""
+Config.SfxRegions = {
+	Dig = { 0.0, 0.32 },
+	Dig2 = { 0.5, 0.82 },
+	Coin = { 1.0, 1.35 },
+	Sell = { 1.5, 2.4 },
+	Click = { 2.5, 2.62 },
+	Open = { 3.0, 3.25 },
+	Error = { 3.5, 3.85 },
+	Chest = { 4.0, 5.2 },
+	Rare = { 5.5, 7.0 },
+	Rebirth = { 7.5, 9.3 },
+	Storm = { 9.5, 11.5 },
+	Buy = { 12.0, 12.7 },
+}
+
+-- Záložní zvuky (vestavěné v Robloxu), když SfxPack ještě není nahraný
 Config.Sounds = {
 	Dig = "rbxasset://sounds/action_footsteps_plastic.mp3",
 	Sell = "rbxasset://sounds/electronicpingshort.wav",

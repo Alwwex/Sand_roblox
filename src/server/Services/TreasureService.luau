@@ -262,7 +262,7 @@ local function openChest(model: Model, info, player: Player)
 	end
 
 	coins = math.floor(coins)
-	data.Coins += coins
+	DataService.addCoins(player, coins)
 	data.ChestsOpened += 1
 	DataService.markDirty(player)
 

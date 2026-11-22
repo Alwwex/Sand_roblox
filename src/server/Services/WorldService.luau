@@ -10,6 +10,8 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Build = require(script.Parent.Build)
+local LobbyBuilder = require(script.Parent.LobbyBuilder)
 
 local W = Config.World
 local Terrain = workspace.Terrain
@@ -17,6 +19,7 @@ local SAND = Enum.Material.Sand
 local AIR = Enum.Material.Air
 local VOXEL = 4
 local CHUNK = 64
+local THIN_SAND = 0.3 -- voxely s menším zaplněním po kopání mažeme (průsvitné slupky)
 
 local WorldService = {}
 
@@ -29,12 +32,11 @@ local ruinsCenter: Vector3? = nil
 local relicCFrame: CFrame? = nil
 local ruinsModel: Model? = nil
 local mapFolder: Folder? = nil
-local spawnCFrame = CFrame.new(0, W.CampTop + 4, 0)
+local spawnCFrames = { CFrame.new(0, W.CampTop + 4, 20) }
 local maxY = math.ceil(W.MaxSand / VOXEL) * VOXEL
 
+WorldService.Lobby = nil :: any -- kotvy z LobbyBuilderu (prodej, obchody, žebříčky...)
 WorldService.SellPad = nil :: BasePart?
-WorldService.ShopCounter = nil :: BasePart?
-WorldService.RebirthStatue = nil :: BasePart?
 
 ---------------------------------------------------------------------
 -- Pomocné funkce
@@ -49,57 +51,8 @@ local function smoothstep(t: number): number
 	return t * t * (3 - 2 * t)
 end
 
-local function makePart(props): Part
-	local part = Instance.new("Part")
-	part.Anchored = true
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	for key, value in props do
-		if key ~= "Parent" then
-			(part :: any)[key] = value
-		end
-	end
-	part.Parent = props.Parent
-	return part
-end
-
-local function cylinder(props): Part
-	-- Válec stojící svisle (Roblox válce mají osu X, proto otočení)
-	local height = props.Height
-	local diameter = props.Diameter
-	local position = props.Position
-	props.Height = nil
-	props.Diameter = nil
-	props.Position = nil
-	props.Shape = Enum.PartType.Cylinder
-	props.Size = Vector3.new(height, diameter, diameter)
-	props.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
-	return makePart(props)
-end
-
-local function addBillboard(part: BasePart, text: string, color: Color3, studsSize: Vector2, offset: number)
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromScale(studsSize.X, studsSize.Y)
-	billboard.StudsOffset = Vector3.new(0, offset, 0)
-	billboard.MaxDistance = 250
-	billboard.LightInfluence = 0
-	billboard.Parent = part
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Text = text
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = color
-	label.Parent = billboard
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 3
-	stroke.Color = Color3.fromRGB(60, 35, 15)
-	stroke.Parent = label
-	return billboard
-end
+local makePart = Build.part
+local cylinder = Build.cylinder
 
 ---------------------------------------------------------------------
 -- Výšková mapa pouště
@@ -259,271 +212,6 @@ local function buildBoundaries(parent: Instance)
 			Parent = parent,
 		})
 	end
-end
-
-local function buildPalm(parent: Instance, base: Vector3, lean: number)
-	local palm = Instance.new("Model")
-	palm.Name = "Palm"
-	local trunkColor = Color3.fromRGB(140, 98, 60)
-	local position = base
-	local direction = Vector3.new(lean, 1, lean * 0.4).Unit
-	for i = 1, 6 do
-		local segment = 2.6
-		local center = position + direction * segment / 2
-		makePart({
-			Name = "Trunk",
-			Size = Vector3.new(1.3 - i * 0.08, segment + 0.3, 1.3 - i * 0.08),
-			CFrame = CFrame.lookAt(center, center + direction) * CFrame.Angles(math.rad(90), 0, 0),
-			Material = Enum.Material.Wood,
-			Color = trunkColor:Lerp(Color3.fromRGB(110, 75, 45), (i % 2) * 0.5),
-			Parent = palm,
-		})
-		position += direction * segment
-		direction = (direction + Vector3.new(lean * 0.12, 0, 0)).Unit
-	end
-	for i = 1, 7 do
-		local angle = (i / 7) * math.pi * 2
-		local leafDir = Vector3.new(math.cos(angle), -0.35, math.sin(angle)).Unit
-		local center = position + leafDir * 3
-		makePart({
-			Name = "Leaf",
-			Size = Vector3.new(1.6, 0.2, 6.5),
-			CFrame = CFrame.lookAt(center, center + leafDir),
-			Material = Enum.Material.Grass,
-			Color = Color3.fromRGB(70, 150, 60):Lerp(Color3.fromRGB(110, 175, 70), (i % 3) / 3),
-			Parent = palm,
-		})
-	end
-	palm.Parent = parent
-end
-
-local function buildTent(parent: Instance, center: Vector3, color: Color3, title: string): Part
-	local tent = Instance.new("Model")
-	tent.Name = title .. "Tent"
-	local w, d, h = 12, 9, 8
-	for _, offset in
-		{
-			Vector3.new(-w / 2, 0, -d / 2),
-			Vector3.new(w / 2, 0, -d / 2),
-			Vector3.new(-w / 2, 0, d / 2),
-			Vector3.new(w / 2, 0, d / 2),
-		}
-	do
-		cylinder({
-			Name = "Pole",
-			Height = h,
-			Diameter = 0.6,
-			Position = center + offset + Vector3.new(0, h / 2, 0),
-			Material = Enum.Material.Wood,
-			Color = Color3.fromRGB(120, 80, 45),
-			Parent = tent,
-		})
-	end
-	-- Střecha (dvě šikmé plachty)
-	for _, sign in { -1, 1 } do
-		local roofCenter = center + Vector3.new(0, h + 1.2, sign * d / 4)
-		makePart({
-			Name = "Roof",
-			Size = Vector3.new(w + 2, 0.3, d / 2 + 1.8),
-			CFrame = CFrame.new(roofCenter) * CFrame.Angles(math.rad(sign * 22), 0, 0),
-			Material = Enum.Material.Fabric,
-			Color = color,
-			Parent = tent,
-		})
-	end
-	local counter = makePart({
-		Name = "Counter",
-		Size = Vector3.new(w - 1, 3, 2.5),
-		Position = center + Vector3.new(0, 1.5, -d / 2 + 1.5),
-		Material = Enum.Material.WoodPlanks,
-		Color = Color3.fromRGB(160, 110, 65),
-		Parent = tent,
-	})
-	tent.Parent = parent
-	addBillboard(counter, title, Color3.fromRGB(255, 240, 200), Vector2.new(12, 3), 9)
-	return counter
-end
-
-local function buildCamp(parent: Instance)
-	local camp = Instance.new("Model")
-	camp.Name = "BaseCamp"
-	-- Tábor je vždy načtený u všech hráčů (důležité při StreamingEnabled)
-	pcall(function()
-		camp.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
-	end)
-	local top = W.CampTop
-	local half = W.CampHalf
-
-	makePart({
-		Name = "Mesa",
-		Size = Vector3.new(half * 2, top, half * 2),
-		Position = Vector3.new(0, top / 2, 0),
-		Material = Enum.Material.Sandstone,
-		Color = Color3.fromRGB(190, 128, 84),
-		Parent = camp,
-	})
-	makePart({
-		Name = "Deck",
-		Size = Vector3.new(half * 2 - 6, 0.6, half * 2 - 6),
-		Position = Vector3.new(0, top + 0.3, 0),
-		Material = Enum.Material.WoodPlanks,
-		Color = Color3.fromRGB(176, 124, 76),
-		Parent = camp,
-	})
-
-	-- Rampy dolů (odkryjí se, až hráči vykopou písek kolem tábora)
-	local run = top * 1.7
-	for _, dir in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
-		local topPoint = dir * half + Vector3.new(0, top, 0)
-		local bottomPoint = dir * (half + run) + Vector3.new(0, 0, 0)
-		local mid = (topPoint + bottomPoint) / 2
-		local length = (topPoint - bottomPoint).Magnitude
-		makePart({
-			Name = "Ramp",
-			Size = Vector3.new(10, 1.5, length + 2),
-			CFrame = CFrame.lookAt(mid, topPoint),
-			Material = Enum.Material.WoodPlanks,
-			Color = Color3.fromRGB(150, 100, 60),
-			Parent = camp,
-		})
-	end
-
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn"
-	spawn.Anchored = true
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.Size = Vector3.new(10, 1, 10)
-	spawn.Position = Vector3.new(0, top + 0.8, 8)
-	spawn.Material = Enum.Material.Sandstone
-	spawn.Color = Color3.fromRGB(240, 210, 150)
-	spawn.TopSurface = Enum.SurfaceType.Smooth
-	spawn.Parent = camp
-	spawnCFrame = CFrame.new(spawn.Position + Vector3.new(0, 4, 0))
-
-	-- Výkupna písku
-	local sellPad = makePart({
-		Name = "SellPad",
-		Size = Vector3.new(12, 1, 12),
-		Position = Vector3.new(-17, top + 0.6, -15),
-		Material = Enum.Material.Neon,
-		Color = Color3.fromRGB(255, 196, 60),
-		Parent = camp,
-	})
-	addBillboard(sellPad, "💰 SELL SAND", Color3.fromRGB(255, 225, 90), Vector2.new(14, 3.5), 6)
-	WorldService.SellPad = sellPad
-	local sparkle = Instance.new("ParticleEmitter")
-	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90))
-	sparkle.Rate = 8
-	sparkle.Lifetime = NumberRange.new(1, 1.6)
-	sparkle.Speed = NumberRange.new(2, 4)
-	sparkle.Size = NumberSequence.new(0.6)
-	sparkle.LightEmission = 1
-	sparkle.Parent = sellPad
-
-	WorldService.ShopCounter =
-		buildTent(camp, Vector3.new(16, top + 0.6, -15), Color3.fromRGB(230, 90, 60), "🛒 TOOL SHOP")
-
-	-- Rebirth socha
-	local statue = makePart({
-		Name = "RebirthObelisk",
-		Size = Vector3.new(4, 14, 4),
-		Position = Vector3.new(18, top + 7.6, 16),
-		Material = Enum.Material.Marble,
-		Color = Color3.fromRGB(255, 215, 120),
-		Parent = camp,
-	})
-	makePart({
-		Name = "ObeliskTip",
-		Size = Vector3.new(2.6, 2.6, 2.6),
-		CFrame = CFrame.new(statue.Position + Vector3.new(0, 8.3, 0)) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
-		Material = Enum.Material.Neon,
-		Color = Color3.fromRGB(120, 230, 255),
-		Parent = camp,
-	})
-	addBillboard(statue, "♻️ REBIRTH", Color3.fromRGB(150, 235, 255), Vector2.new(10, 2.6), 11)
-	WorldService.RebirthStatue = statue
-
-	-- Cedule s názvem hry
-	local sign = makePart({
-		Name = "Sign",
-		Size = Vector3.new(22, 6, 1),
-		Position = Vector3.new(0, top + 6, half - 3),
-		Material = Enum.Material.WoodPlanks,
-		Color = Color3.fromRGB(130, 85, 50),
-		Parent = camp,
-	})
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
-		local surface = Instance.new("SurfaceGui")
-		surface.Face = face
-		surface.CanvasSize = Vector2.new(660, 180)
-		surface.LightInfluence = 0
-		surface.Parent = sign
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.Text = string.upper(Config.GameName)
-		label.TextScaled = true
-		label.Font = Enum.Font.FredokaOne
-		label.TextColor3 = Color3.fromRGB(255, 214, 110)
-		label.Parent = surface
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 4
-		stroke.Color = Color3.fromRGB(70, 40, 20)
-		stroke.Parent = label
-	end
-	for _, x in { -9, 9 } do
-		cylinder({
-			Name = "SignPost",
-			Height = 9,
-			Diameter = 0.8,
-			Position = Vector3.new(x, top + 4.5, half - 3),
-			Material = Enum.Material.Wood,
-			Color = Color3.fromRGB(110, 72, 40),
-			Parent = camp,
-		})
-	end
-
-	-- Palmy a pochodně
-	buildPalm(camp, Vector3.new(-half + 5, top, -half + 5), 0.15)
-	buildPalm(camp, Vector3.new(half - 5, top, half - 9), -0.12)
-	buildPalm(camp, Vector3.new(-half + 5, top, half - 6), 0.1)
-	buildPalm(camp, Vector3.new(half - 6, top, -half + 5), -0.18)
-
-	for _, position in
-		{ Vector3.new(-6, top, 2), Vector3.new(6, top, 2), Vector3.new(-6, top, 14), Vector3.new(6, top, 14) }
-	do
-		cylinder({
-			Name = "Torch",
-			Height = 4,
-			Diameter = 0.5,
-			Position = position + Vector3.new(0, 2, 0),
-			Material = Enum.Material.Wood,
-			Color = Color3.fromRGB(100, 65, 35),
-			Parent = camp,
-		})
-		local flame = makePart({
-			Name = "Flame",
-			Size = Vector3.new(0.8, 0.8, 0.8),
-			Position = position + Vector3.new(0, 4.4, 0),
-			Material = Enum.Material.Neon,
-			Color = Color3.fromRGB(255, 150, 40),
-			CanCollide = false,
-			Parent = camp,
-		})
-		local fire = Instance.new("Fire")
-		fire.Size = 3
-		fire.Heat = 6
-		fire.Parent = flame
-		local light = Instance.new("PointLight")
-		light.Color = Color3.fromRGB(255, 170, 80)
-		light.Range = 14
-		light.Brightness = 1.2
-		light.Parent = flame
-	end
-
-	camp.Parent = parent
 end
 
 ---------------------------------------------------------------------
@@ -739,8 +427,13 @@ function WorldService.setReady(value: boolean)
 end
 
 function WorldService.getSpawnCFrame(): CFrame
-	local offset = Vector3.new(rng:NextNumber(-4, 4), 0, rng:NextNumber(-4, 4))
-	return spawnCFrame + offset
+	local base = spawnCFrames[rng:NextInteger(1, #spawnCFrames)]
+	return base + Vector3.new(rng:NextNumber(-2, 2), 0, rng:NextNumber(-2, 2))
+end
+
+-- Je bod uvnitř lobby (tam se kopat nesmí)?
+function WorldService.isInLobby(position: Vector3): boolean
+	return math.max(math.abs(position.X), math.abs(position.Z)) < W.CampHalf + 1 and position.Y > W.CampTop - 8
 end
 
 -- Bezpečný teleport do tábora (při zapnutém StreamingEnabled nejdřív načte okolí)
@@ -813,6 +506,8 @@ local function sumSand(region: Region3): number
 end
 
 -- Vykope kouli písku. Vrací množství písku (už přepočtené přes SandPerVoxel).
+-- Po vykopání se "uhladí" tenké zbytky písku: smooth terrain z nich jinak dělá
+-- průsvitné slupky a díry, přes které jde vidět.
 function WorldService.digSphere(center: Vector3, radius: number): number
 	local padding = Vector3.one * (radius + VOXEL)
 	local region = Region3.new(center - padding, center + padding):ExpandToGrid(VOXEL)
@@ -821,7 +516,40 @@ function WorldService.digSphere(center: Vector3, radius: number): number
 		return 0
 	end
 	Terrain:FillBall(center, radius, AIR)
-	local after = sumSand(region)
+
+	local materials, occupancies = Terrain:ReadVoxels(region, VOXEL)
+	local size = materials.Size
+	local minCorner = region.CFrame.Position - region.Size / 2
+	local snapRadius = radius + VOXEL
+	local after = 0
+	local changed = false
+	for x = 1, size.X do
+		local matX, occX = materials[x], occupancies[x]
+		local wx = minCorner.X + (x - 0.5) * VOXEL
+		for y = 1, size.Y do
+			local matY, occY = matX[y], occX[y]
+			local wy = minCorner.Y + (y - 0.5) * VOXEL
+			for z = 1, size.Z do
+				if matY[z] == SAND then
+					local occ = occY[z]
+					if occ < THIN_SAND then
+						local wz = minCorner.Z + (z - 0.5) * VOXEL
+						if (Vector3.new(wx, wy, wz) - center).Magnitude <= snapRadius then
+							matY[z] = AIR
+							occY[z] = 0
+							occ = 0
+							changed = true
+						end
+					end
+					after += occ
+				end
+			end
+		end
+	end
+	if changed then
+		Terrain:WriteVoxels(region, VOXEL, materials, occupancies)
+	end
+
 	local removed = math.max(0, before - after) * Config.SandPerVoxel
 	remainingSand = math.max(0, remainingSand - removed)
 	return removed
@@ -865,6 +593,7 @@ function WorldService.regenerate()
 	ruinsCenter = pickRuinsCenter()
 	buildRuins(mapFolder :: Folder, ruinsCenter :: Vector3)
 	generateTerrain()
+	LobbyBuilder.fillWater()
 end
 
 function WorldService.init()
@@ -878,7 +607,10 @@ function WorldService.init()
 
 	Terrain:Clear()
 	buildBoundaries(folder)
-	buildCamp(folder)
+	local lobby = LobbyBuilder.build(folder)
+	WorldService.Lobby = lobby
+	WorldService.SellPad = lobby.SellPad
+	spawnCFrames = lobby.Spawns
 	WorldService.regenerate()
 end
 

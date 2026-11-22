@@ -16,18 +16,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
-SHARED = ["Config", "Remotes", "Util"]
-CLIENT = ["Effects", "DigController", "UI"]
+SHARED = ["Config", "Remotes", "Util", "ToolFactory"]
+CLIENT = ["UIKit", "Audio", "Effects", "Hud", "Windows", "MainMenu", "DigController", "UI"]
 SERVICES = [
+    "Build",
+    "LobbyBuilder",
     "Stats",
     "DataService",
     "WorldService",
     "TreasureService",
-    "ToolFactory",
     "ShopService",
     "DigService",
     "MonetizationService",
     "SandstormService",
+    "RewardService",
+    "LeaderboardService",
 ]
 
 
@@ -36,7 +39,7 @@ def wrap(name: str, path: Path) -> str:
     return f'mock.defineModule("{name}", function(script)\n{body}\nend)\n'
 
 
-def build() -> str:
+def build(preview: bool = False) -> str:
     parts = []
     mock_src = (ROOT / "tests" / "mock_roblox.luau").read_text(encoding="utf-8")
     parts.append("local mock = (function()\n" + mock_src + "\nend)()\n")
@@ -96,7 +99,10 @@ end
 """
     )
     parts.append((ROOT / "tests" / "server_smoke.luau").read_text(encoding="utf-8"))
-    parts.append((ROOT / "tests" / "client_smoke.luau").read_text(encoding="utf-8"))
+    if preview:
+        parts.append((ROOT / "tests" / "preview_export.luau").read_text(encoding="utf-8"))
+    else:
+        parts.append((ROOT / "tests" / "client_smoke.luau").read_text(encoding="utf-8"))
     return "\n".join(parts)
 
 
@@ -105,10 +111,27 @@ def main() -> int:
     if not runner:
         print("Nastav LUAU_RUNNER na cestu k Luau runneru (viz tests/README.md).")
         return 2
+    preview_dir = None
+    if "--preview" in sys.argv:
+        preview_dir = Path(sys.argv[sys.argv.index("--preview") + 1])
+        preview_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         bundle = Path(tmp) / "bundle.luau"
-        bundle.write_text(build(), encoding="utf-8")
-        result = subprocess.run([runner, str(bundle)])
+        bundle.write_text(build(preview_dir is not None), encoding="utf-8")
+        if preview_dir is None:
+            result = subprocess.run([runner, str(bundle)])
+            return result.returncode
+        # náhled: JSONy z výstupu uložíme do souborů
+        result = subprocess.run([runner, str(bundle)], capture_output=True, text=True)
+        count = 0
+        for line in result.stdout.splitlines():
+            if line.startswith("@@JSON "):
+                _, name, payload = line.split(" ", 2)
+                (preview_dir / f"{name}.json").write_text(payload, encoding="utf-8")
+                count += 1
+        print(f"Náhled: {count} JSON souborů -> {preview_dir}")
+        if result.returncode != 0:
+            print(result.stdout[-3000:], result.stderr[-3000:])
         return result.returncode
 
 

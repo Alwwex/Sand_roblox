@@ -5,7 +5,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = __dirname;
-const OUT = path.resolve(process.argv[2] || "out");
+const OUT = process.argv[2];
 const only = process.argv.slice(3);
 const JOBS = [
   ['icon', 1024, 1024],
@@ -18,6 +18,16 @@ const JOBS = [
   ['story', 1080, 1920],
   ['thumbnail', 1920, 1080],
   ['mockup', 2400, 1600],
+  ['lobby_aerial', 1920, 1080],
+  ['lobby_ground', 1920, 1080],
+  ['ui_menu', 1920, 1080],
+  ['ui_hud', 1920, 1080],
+  ['ui_shop', 1920, 1080],
+  ['ui_store', 1920, 1080],
+  ['ui_top', 1920, 1080],
+  ['ui_index', 1920, 1080],
+  ['ui_rebirth', 1920, 1080],
+  ['ui_settings', 1920, 1080],
 ];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/woff2', '.png': 'image/png', '.json': 'application/json' };
 

@@ -91,7 +91,7 @@ local PRODUCT_HANDLERS = {}
 
 local function grantCoins(player: Player, session, baseCoins: number)
 	local coins = baseCoins * (session.Data.Rebirths + 1)
-	session.Data.Coins += coins
+	DataService.addCoins(player, coins)
 	DataService.notify(player, ("💰 +%s coins! Thank you! ❤️"):format(Util.formatNumber(coins)), "epic")
 end
 

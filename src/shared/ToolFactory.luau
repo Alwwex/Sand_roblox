@@ -4,10 +4,11 @@
 	Konvence: nástroj míří dopředu po ose -Z, "nahoru" je +Y.
 	Grip = místo, kde ho postava drží (+ lehký náklon špičkou dolů).
 	Chceš vlastní model? Viz docs/NAVOD.md – sekce "Vlastní modely nástrojů".
+	Sdílený modul: server z něj dělá nástroje do ruky, klient náhledy v obchodě
+	a lobby z něj staví dekorace (createModel).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 
@@ -263,8 +264,8 @@ end
 function ToolFactory.create(toolId: string): Tool
 	local config = Config.ToolsById[toolId] or Config.Tools[1]
 
-	-- Vlastní model: ServerStorage > CustomTools > Tool pojmenovaný podle Id (např. "Spoon")
-	local customFolder = ServerStorage:FindFirstChild("CustomTools")
+	-- Vlastní model: ReplicatedStorage > CustomTools > Tool pojmenovaný podle Id (např. "Spoon")
+	local customFolder = ReplicatedStorage:FindFirstChild("CustomTools")
 	local custom = customFolder and customFolder:FindFirstChild(config.Id)
 	if custom and custom:IsA("Tool") then
 		local clone = custom:Clone()
@@ -283,6 +284,23 @@ function ToolFactory.create(toolId: string): Tool
 	local builder = BUILDERS[config.Id] or BUILDERS.Shovel
 	builder(tool)
 	return tool
+end
+
+-- Ukotvený model nástroje (dekorace v lobby, náhled ve ViewportFrame)
+function ToolFactory.createModel(toolId: string): Model
+	local tool = ToolFactory.create(toolId)
+	local model = Instance.new("Model")
+	model.Name = tool.Name
+	for _, child in tool:GetChildren() do
+		if child:IsA("BasePart") then
+			child.Anchored = true
+			child.CanCollide = false
+			child.Parent = model
+		end
+	end
+	model.PrimaryPart = model:FindFirstChild("Handle") :: BasePart?
+	tool:Destroy()
+	return model
 end
 
 return ToolFactory

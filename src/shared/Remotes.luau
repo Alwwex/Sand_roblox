@@ -15,6 +15,8 @@ local DEFINITIONS = {
 	Rebirth = "RemoteFunction",
 	RedeemCode = "RemoteFunction",
 	GetData = "RemoteFunction",
+	ClaimDaily = "RemoteFunction",
+	SaveSettings = "RemoteEvent",
 	-- server -> klient
 	DataSync = "RemoteEvent",
 	DigResult = "RemoteEvent",
@@ -22,6 +24,7 @@ local DEFINITIONS = {
 	Sold = "RemoteEvent",
 	ChestOpened = "RemoteEvent",
 	OpenWindow = "RemoteEvent",
+	Reward = "RemoteEvent",
 }
 
 local Remotes = {}

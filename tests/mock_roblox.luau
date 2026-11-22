@@ -77,46 +77,109 @@ Vector2 = {
 		return setmetatable({ X = x or 0, Y = y or 0 }, V2)
 	end,
 }
+Vector2.zero = Vector2.new(0, 0)
 
 ---------------------------------------------------------------------
--- CFrame (bez rotace – pro smoke test stačí pozice)
+-- CFrame s rotací (matice 3x3 po řádcích + pozice)
 ---------------------------------------------------------------------
 local CF = {}
+local IDENT = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+local function mkCF(p, r)
+	return setmetatable({ P = p, R = r or IDENT }, CF)
+end
+local function matMul(a, b)
+	local r = {}
+	for i = 0, 2 do
+		for j = 0, 2 do
+			r[i * 3 + j + 1] = a[i * 3 + 1] * b[j + 1] + a[i * 3 + 2] * b[3 + j + 1] + a[i * 3 + 3] * b[6 + j + 1]
+		end
+	end
+	return r
+end
+local function matVec(a, v)
+	return Vector3.new(a[1] * v.X + a[2] * v.Y + a[3] * v.Z, a[4] * v.X + a[5] * v.Y + a[6] * v.Z, a[7] * v.X + a[8] * v.Y + a[9] * v.Z)
+end
+local function transpose(a)
+	return { a[1], a[4], a[7], a[2], a[5], a[8], a[3], a[6], a[9] }
+end
 CF.__index = function(self, key)
-	if key == "Position" then
+	local r = self.R
+	if key == "Position" or key == "p" then
 		return self.P
 	elseif key == "LookVector" then
-		return Vector3.new(0, 0, -1)
+		return Vector3.new(-r[3], -r[6], -r[9])
+	elseif key == "RightVector" then
+		return Vector3.new(r[1], r[4], r[7])
+	elseif key == "UpVector" then
+		return Vector3.new(r[2], r[5], r[8])
+	elseif key == "X" then
+		return self.P.X
+	elseif key == "Y" then
+		return self.P.Y
+	elseif key == "Z" then
+		return self.P.Z
+	elseif key == "Rotation" then
+		return mkCF(Vector3.new(0, 0, 0), r)
 	elseif key == "Inverse" then
 		return function(s)
-			return CFrame.new(-s.P)
+			local rt = transpose(s.R)
+			return mkCF(-matVec(rt, s.P), rt)
+		end
+	elseif key == "GetComponents" then
+		return function(s)
+			local m = s.R
+			return s.P.X, s.P.Y, s.P.Z, m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]
 		end
 	end
 	return nil
 end
 CF.__mul = function(a, b)
 	if isV3(b) then
-		return a.P + b
+		return a.P + matVec(a.R, b)
 	end
-	return CFrame.new(a.P + b.P)
+	return mkCF(a.P + matVec(a.R, b.P), matMul(a.R, b.R))
 end
-CF.__add = function(a, b)
-	return CFrame.new(a.P + b)
+CF.__add = function(a, v)
+	return mkCF(a.P + v, a.R)
+end
+CF.__sub = function(a, v)
+	return mkCF(a.P - v, a.R)
+end
+local function rx(t)
+	local c, s = math.cos(t), math.sin(t)
+	return { 1, 0, 0, 0, c, -s, 0, s, c }
+end
+local function ry(t)
+	local c, s = math.cos(t), math.sin(t)
+	return { c, 0, s, 0, 1, 0, -s, 0, c }
+end
+local function rz(t)
+	local c, s = math.cos(t), math.sin(t)
+	return { c, -s, 0, s, c, 0, 0, 0, 1 }
 end
 CFrame = {
 	new = function(x, y, z)
 		if isV3(x) then
-			return setmetatable({ P = x }, CF)
+			return mkCF(x)
 		end
-		return setmetatable({ P = Vector3.new(x or 0, y or 0, z or 0) }, CF)
+		return mkCF(Vector3.new(x or 0, y or 0, z or 0))
 	end,
-	Angles = function()
-		return CFrame.new(0, 0, 0)
+	Angles = function(a, b, c)
+		return mkCF(Vector3.new(0, 0, 0), matMul(matMul(rx(a or 0), ry(b or 0)), rz(c or 0)))
 	end,
-	lookAt = function(pos)
-		return CFrame.new(pos)
+	lookAt = function(at, target, up)
+		up = up or Vector3.new(0, 1, 0)
+		local f = (target - at).Unit
+		local right = Vector3.new(f.Y * up.Z - f.Z * up.Y, f.Z * up.X - f.X * up.Z, f.X * up.Y - f.Y * up.X)
+		if right.Magnitude < 1e-6 then
+			right = Vector3.new(1, 0, 0)
+		end
+		right = right.Unit
+		local u = Vector3.new(right.Y * f.Z - right.Z * f.Y, right.Z * f.X - right.X * f.Z, right.X * f.Y - right.Y * f.X)
+		return mkCF(at, { right.X, u.X, -f.X, right.Y, u.Y, -f.Y, right.Z, u.Z, -f.Z })
 	end,
 }
+CFrame.identity = CFrame.new()
 
 ---------------------------------------------------------------------
 -- Ostatní datové typy
@@ -199,7 +262,7 @@ Region3 = {}
 local R3 = {}
 R3.__index = R3
 function Region3.new(min, max)
-	return setmetatable({ Min = min, Max = max }, R3)
+	return setmetatable({ Min = min, Max = max, CFrame = CFrame.new((min + max) / 2), Size = max - min }, R3)
 end
 function R3:ExpandToGrid(res)
 	local function down(v)
@@ -259,6 +322,8 @@ local SIGNAL_NAMES = {
 	InputBegan = true,
 	InputChanged = true,
 	Changed = true,
+	MouseEnter = true,
+	InputEnded = true,
 }
 
 local Instance_ = {}
@@ -274,7 +339,10 @@ local function newInstance(className, name)
 	local methods = {}
 	function methods:IsA(cls)
 		if cls == "BasePart" then
-			return data.ClassName == "Part" or data.ClassName == "SpawnLocation"
+			return data.ClassName == "Part" or data.ClassName == "SpawnLocation" or data.ClassName == "WedgePart"
+		end
+		if cls == "GuiObject" then
+			return data.ClassName == "Frame" or data.ClassName == "TextLabel" or data.ClassName == "TextButton"
 		end
 		return data.ClassName == cls
 	end
@@ -337,6 +405,24 @@ local function newInstance(className, name)
 	end
 	function methods:PivotTo(cf)
 		data.__pivot = cf
+		if data.CFrame or data.Position then
+			obj.CFrame = cf
+			return
+		end
+		local parts = {}
+		for _, d in obj:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
+		end
+		local pivotPart = data.PrimaryPart or parts[1]
+		if not pivotPart then
+			return
+		end
+		local delta = cf * pivotPart.CFrame:Inverse()
+		for _, part in parts do
+			part.CFrame = delta * part.CFrame
+		end
 	end
 	function methods:FireClient(...)
 		data.__fired = data.__fired or {}
@@ -353,6 +439,8 @@ local function newInstance(className, name)
 		obj.OnServerEvent:Fire(mock.localPlayer, ...)
 	end
 	function methods:AddItem() end
+	function methods:Pause() end
+	function methods:Stop() end
 	function methods:GetMouseLocation()
 		return Vector2.new(400, 300)
 	end
@@ -388,6 +476,19 @@ local function newInstance(className, name)
 			return nil
 		end,
 		__newindex = function(_, key, value)
+			if key == "Position" and data.CFrame and isV3(value) then
+				data.CFrame = CFrame.new(value) * data.CFrame.Rotation
+				return
+			elseif key == "CFrame" then
+				data.Position = nil
+			end
+			if key == "Value" and string.sub(data.ClassName, -5) == "Value" then
+				data.Value = value
+				if data.__signals.Changed then
+					data.__signals.Changed:Fire(value)
+				end
+				return
+			end
 			if key == "Parent" then
 				local old = data.Parent
 				if old then
@@ -442,6 +543,9 @@ local function makeTerrain()
 		table.clear(voxels)
 	end
 	function methods:SetMaterialColor() end
+	function methods:FillBlock(cframe, size, material)
+		mock.waterFilled = (mock.waterFilled or 0) + 1
+	end
 	function methods:WriteVoxels(region, res, materials, occupancy)
 		assert(res == 4, "resolution must be 4")
 		local size = (region.Max - region.Min) / res
@@ -553,6 +657,12 @@ mock.dataOf(players).__methods.GetPlayerByUserId = function(_, id)
 	end
 	return nil
 end
+mock.dataOf(players).__methods.GetNameFromUserIdAsync = function(_, id)
+	return "User" .. id
+end
+mock.dataOf(players).__methods.CreateHumanoidModelFromUserId = function()
+	error("not available in mock")
+end
 services.Players = players
 
 local stores = {}
@@ -574,7 +684,43 @@ mock.dataOf(dataStoreService).__methods.GetDataStore = function(_, name)
 		end,
 	}
 end
+mock.ordered = {}
+mock.dataOf(dataStoreService).__methods.GetOrderedDataStore = function(_, name)
+	mock.ordered[name] = mock.ordered[name] or {}
+	local backing = mock.ordered[name]
+	return {
+		SetAsync = function(_, key, value)
+			assert(type(value) == "number" and value == math.floor(value), "ordered value must be integer")
+			backing[key] = value
+		end,
+		GetSortedAsync = function(_, ascending, pageSize)
+			local list = {}
+			for k, v in backing do
+				table.insert(list, { key = k, value = v })
+			end
+			table.sort(list, function(a, b)
+				return if ascending then a.value < b.value else a.value > b.value
+			end)
+			while #list > pageSize do
+				table.remove(list)
+			end
+			return { GetCurrentPage = function()
+				return list
+			end }
+		end,
+	}
+end
 services.DataStoreService = dataStoreService
+
+local http = newInstance("HttpService")
+mock.dataOf(http).__methods.JSONEncode = function(_, value)
+	mock.lastJson = value
+	return "<json>"
+end
+mock.dataOf(http).__methods.JSONDecode = function(_, text)
+	return mock.lastJson or {}
+end
+services.HttpService = http
 
 local runService = newInstance("RunService")
 mock.dataOf(runService).__methods.IsStudio = function()
@@ -586,8 +732,14 @@ end
 services.RunService = runService
 
 local tweenService = newInstance("TweenService")
-mock.dataOf(tweenService).__methods.Create = function()
+mock.dataOf(tweenService).__methods.Create = function(_, instance, _info, goals)
 	local tween = newInstance("Tween")
+	mock.dataOf(tween).__methods.Play = function()
+		-- v mocku animace hned skončí (náhledy pak ukazují koncový stav)
+		for key, value in goals or {} do
+			instance[key] = value
+		end
+	end
 	return tween
 end
 services.TweenService = tweenService

@@ -25,6 +25,7 @@ local SYNC_INTERVAL = 0.1
 local DataService = {}
 
 local sessions = {} -- [Player] = session
+local saveHooks = {} -- funkce volané po uložení (např. žebříčky)
 local store = nil
 
 local IS_STUDIO = RunService:IsStudio()
@@ -43,6 +44,10 @@ local function defaultData()
 		Codes = {},
 		Receipts = {},
 		ChestsOpened = 0,
+		TotalCoins = 0, -- mince vydělané za celou dobu (žebříček)
+		LastDaily = 0,
+		LastVipChest = 0,
+		Settings = { Music = 0.5, Sfx = 0.8, LowGfx = false, Popups = true },
 		FirstJoin = os.time(),
 	}
 end
@@ -196,6 +201,9 @@ local function saveToStore(player: Player, session, releaseLock: boolean): boole
 			end)
 		end)
 		if ok then
+			for _, hook in saveHooks do
+				task.spawn(hook, player, data)
+			end
 			return true
 		end
 		warn("[DataService] Uložení selhalo:", err)
@@ -210,6 +218,11 @@ end
 
 function DataService.get(player: Player)
 	return sessions[player]
+end
+
+-- Všechny načtené session (např. pro žebříček ve Studiu)
+function DataService.getAll()
+	return sessions
 end
 
 -- Počká, dokud se hráči nenačtou data (max timeout sekund)
@@ -248,7 +261,30 @@ function DataService.buildPayload(session)
 		Passes = session.Passes,
 		InGroup = session.InGroup,
 		ChestsOpened = data.ChestsOpened,
+		TotalCoins = data.TotalCoins,
+		Settings = data.Settings,
+		LastDaily = data.LastDaily,
+		LastVipChest = data.LastVipChest,
+		DailyCooldown = Config.Daily.CooldownHours * 3600,
+		ServerTime = os.time(),
 	}
+end
+
+-- Přidá mince a započítá je do celkového výdělku (žebříček)
+function DataService.addCoins(player: Player, amount: number)
+	local session = sessions[player]
+	if not session or amount <= 0 then
+		return
+	end
+	amount = math.floor(amount)
+	session.Data.Coins += amount
+	session.Data.TotalCoins += amount
+	session.Dirty = true
+end
+
+-- Registrace funkce, která se zavolá po každém uložení dat hráče
+function DataService.onSaved(callback)
+	table.insert(saveHooks, callback)
 end
 
 function DataService.syncNow(player: Player)
@@ -307,6 +343,7 @@ function DataService.loadPlayer(player: Player)
 	end
 
 	reconcile(data, defaultData())
+	reconcile(data.Settings, defaultData().Settings)
 
 	if IS_STUDIO and Config.Testing.StudioStartCoins > 0 and data.Coins < Config.Testing.StudioStartCoins then
 		data.Coins = Config.Testing.StudioStartCoins
@@ -369,6 +406,22 @@ function DataService.init()
 			task.wait(AUTOSAVE_INTERVAL)
 			for player, session in sessions do
 				task.spawn(saveToStore, player, session, false)
+			end
+		end
+	end)
+
+	Remotes.SaveSettings.OnServerEvent:Connect(function(player, settings)
+		local session = sessions[player]
+		if not session or type(settings) ~= "table" then
+			return
+		end
+		local current = session.Data.Settings
+		for key, value in settings do
+			if current[key] ~= nil and type(value) == type(current[key]) then
+				if type(value) == "number" then
+					value = math.clamp(value, 0, 1)
+				end
+				current[key] = value
 			end
 		end
 	end)

@@ -11,7 +11,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local DataService = require(script.Parent.DataService)
 local Stats = require(script.Parent.Stats)
-local ToolFactory = require(script.Parent.ToolFactory)
+local ToolFactory = require(ReplicatedStorage.Shared.ToolFactory)
 local WorldService = require(script.Parent.WorldService)
 
 local ShopService = {}
@@ -70,7 +70,7 @@ function ShopService.sell(player: Player, isAuto: boolean?): number
 	local sand = data.Sand
 	local coins = math.floor(sand * Config.Economy.CoinsPerSand * Stats.coinMultiplier(session))
 	data.Sand = 0
-	data.Coins += coins
+	DataService.addCoins(player, coins)
 	DataService.markDirty(player)
 	Remotes.Sold:FireClient(player, coins, sand, isAuto == true)
 	return coins
@@ -204,7 +204,7 @@ local function redeemCode(player: Player, rawCode: string)
 	local coins = 0
 	if reward.Coins then
 		coins = reward.Coins * (data.Rebirths + 1)
-		data.Coins += coins
+		DataService.addCoins(player, coins)
 	end
 	DataService.markDirty(player)
 	return true, ("Code redeemed! +%s coins"):format(Util.formatNumber(coins))
@@ -274,8 +274,10 @@ function ShopService.init()
 			Remotes.OpenWindow:FireClient(player, window)
 		end)
 	end
-	addPrompt(WorldService.ShopCounter, "Open Shop", "Shop")
-	addPrompt(WorldService.RebirthStatue, "Rebirth", "Rebirth")
+	local lobby = WorldService.Lobby or {}
+	addPrompt(lobby.ToolCounter, "Tool Shop", "Shop")
+	addPrompt(lobby.BackpackCounter, "Backpacks", "Shop:Backpack")
+	addPrompt(lobby.RebirthAltar, "Rebirth", "Rebirth")
 end
 
 return ShopService

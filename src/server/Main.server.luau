@@ -17,6 +17,8 @@ local ShopService = require(Services.ShopService)
 local DigService = require(Services.DigService)
 local MonetizationService = require(Services.MonetizationService)
 local SandstormService = require(Services.SandstormService)
+local RewardService = require(Services.RewardService)
+local LeaderboardService = require(Services.LeaderboardService)
 
 -- Postavy spawnujeme až když je svět hotový
 Players.CharacterAutoLoads = false
@@ -31,6 +33,8 @@ TreasureService.init()
 TreasureService.populate()
 ShopService.init()
 DigService.init()
+RewardService.init()
+LeaderboardService.init()
 WorldService.setReady(true)
 SandstormService.start()
 print(("[Dune Diggers] Svět hotový za %.1f s"):format(os.clock() - started))
@@ -73,6 +77,11 @@ local function onCharacterAdded(player: Player, character: Model)
 end
 
 local function onPlayerAdded(player: Player)
+	-- kamera nesmí zajet do písku ani daleko pryč
+	player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+	player.CameraMaxZoomDistance = Config.Camera.MaxZoom
+	player.CameraMinZoomDistance = Config.Camera.MinZoom
+
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
 	end)

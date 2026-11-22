@@ -69,9 +69,24 @@ check("hráč má postavu", player.Character ~= nil)
 local held = player.Character and player.Character:FindFirstChildOfClass("Tool")
 check("hráč drží Bare Hands", held and held:GetAttribute("DigToolId") == "Hands", held)
 
+print("== Lobby ==")
+local lobby = WorldService.Lobby
+check("lobby postavena", lobby ~= nil and lobby.SellPad ~= nil and #lobby.Spawns == 4)
+check("voda v oáze", (mock.waterFilled or 0) >= 1)
+check("žebříčkové tabule", lobby.Boards and lobby.Boards.Coins ~= nil and lobby.Boards.Rebirths ~= nil)
+check("gamepass stánky", lobby.PassStands and lobby.PassStands.VIP ~= nil)
+local partCount = 0
+for _, d in lobby.Model:GetDescendants() do
+	if d:IsA("BasePart") then
+		partCount += 1
+	end
+end
+check("počet partů v lobby rozumný", partCount > 300 and partCount < 2500, partCount)
+print(("     (lobby má %d partů)"):format(partCount))
+
 print("== Kopání ==")
 local root = player.Character.HumanoidRootPart
-local digSpot = Vector3.new(0, WorldService.heightAt(0, 50), 50)
+local digSpot = Vector3.new(0, WorldService.heightAt(0, 90), 90)
 root.Position = digSpot + Vector3.new(0, 3, 0)
 Remotes.Dig.OnServerEvent:Fire(player, digSpot)
 check("kopnutí přidalo písek", session.Data.Sand > 0, session.Data.Sand)
@@ -90,6 +105,12 @@ check("moc daleko = nekope", session.Data.Sand == beforeFar)
 Remotes.Dig.OnServerEvent:Fire(player, "hack")
 Remotes.Dig.OnServerEvent:Fire(player, Vector3.new(0 / 0, 0, 0))
 check("nesmyslný vstup nespadne", true)
+mock.advance(0.5)
+local beforeLobby = session.Data.Sand
+root.Position = Vector3.new(0, 34, 20)
+Remotes.Dig.OnServerEvent:Fire(player, Vector3.new(0, 30, 24))
+check("v lobby se nekope", session.Data.Sand == beforeLobby)
+root.Position = digSpot + Vector3.new(0, 3, 0)
 
 -- naplnit batoh
 for i = 1, 40 do
@@ -244,11 +265,23 @@ check("po bouři je poušť plná", WorldService.getClearedFraction() < 0.01, Wo
 check("po bouři nové truhly", #treasures:GetChildren() >= Config.Treasure.StartChests)
 check("svět je zase připravený", WorldService.isReady())
 
+print("== Odměny ==")
+coins = session.Data.Coins
+ok, msg = Remotes.ClaimDaily.OnServerInvoke(player)
+check("denní odměna", ok and session.Data.Coins > coins, msg)
+ok = Remotes.ClaimDaily.OnServerInvoke(player)
+check("denní odměna jen jednou", not ok)
+check("celkové mince rostou", session.Data.TotalCoins >= session.Data.Coins)
+Remotes.SaveSettings.OnServerEvent:Fire(player, { Music = 0.2, Sfx = 5, Hack = true, LowGfx = "x" })
+check("nastavení uloženo a ořezáno", session.Data.Settings.Music == 0.2 and session.Data.Settings.Sfx == 1 and session.Data.Settings.Hack == nil and session.Data.Settings.LowGfx == false)
+
 print("== Ukládání ==")
 mock.services.Players.PlayerRemoving:Fire(player)
 local stored = mock.stores["DuneDiggers_PlayerData_v1"]["Player_101"]
 check("data uložena", stored ~= nil and stored.Rebirths == 1)
 check("zámek uvolněn", stored and stored.Lock == nil)
+mock.advance(1)
+check("žebříček uložen", mock.ordered["LB_Coins_v1"] and (mock.ordered["LB_Coins_v1"]["101"] or 0) > 0)
 check("session odstraněna", DataService.get(player) == nil)
 
 -- znovu připojení – data se načtou
@@ -258,6 +291,9 @@ mock.advance(2)
 local session2 = DataService.get(player2)
 check("po návratu data načtena", session2 and session2.Data.Rebirths == 1)
 check("po návratu účtenky zachovány", session2 and session2.Data.Receipts["p1"] ~= nil)
+mock.advance(100)
+local lbJson = mock.lastJson
+check("žebříček obnoven", lbJson and lbJson.Coins and lbJson.Coins[1] and lbJson.Coins[1].Value > 0)
 
 print(("\nVÝSLEDEK: %d OK, %d CHYB"):format(passed, failed))
 if failed > 0 then

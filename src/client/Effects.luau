@@ -5,12 +5,8 @@
 
 local Debris = game:GetService("Debris")
 local Lighting = game:GetService("Lighting")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
-
-local Config = require(ReplicatedStorage.Shared.Config)
 
 local Effects = {}
 
@@ -32,22 +28,40 @@ local function anchorPart(position: Vector3): Part
 	return part
 end
 
-function Effects.playSound(name: string, volume: number?, pitch: number?)
-	local id = Config.Sounds[name]
-	if not id or id == "" then
+-- Nastavení z menu Settings
+Effects.lowGraphics = false
+Effects.popups = true
+
+-- Zatřesení kamerou (přes Humanoid.CameraOffset)
+function Effects.shake(intensity: number, duration: number)
+	if Effects.lowGraphics then
 		return
 	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume or 0.5
-	sound.PlaybackSpeed = pitch or 1
-	sound.Parent = SoundService
-	sound:Play()
-	Debris:AddItem(sound, 3)
+	local character = game:GetService("Players").LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	task.spawn(function()
+		local started = os.clock()
+		while os.clock() - started < duration do
+			local fade = 1 - (os.clock() - started) / duration
+			humanoid.CameraOffset = Vector3.new(
+				(math.random() - 0.5) * intensity * fade,
+				(math.random() - 0.5) * intensity * fade,
+				(math.random() - 0.5) * intensity * fade
+			)
+			task.wait()
+		end
+		humanoid.CameraOffset = Vector3.zero
+	end)
 end
 
 -- Oblak písku při kopání
 function Effects.digBurst(position: Vector3, strength: number)
+	if Effects.lowGraphics then
+		return
+	end
 	local part = anchorPart(position)
 	local size = math.clamp(strength, 0.6, 4)
 
@@ -86,6 +100,9 @@ end
 
 -- Vyskakující text ve světě (+12, +500 coins...)
 function Effects.popup(position: Vector3, text: string, color: Color3, scale: number?)
+	if not Effects.popups then
+		return
+	end
 	local part = anchorPart(position)
 	local s = scale or 1
 	local billboard = Instance.new("BillboardGui")
@@ -101,7 +118,7 @@ function Effects.popup(position: Vector3, text: string, color: Color3, scale: nu
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.LuckiestGuy
 	label.TextColor3 = color
 	label.Parent = billboard
 	local stroke = Instance.new("UIStroke")

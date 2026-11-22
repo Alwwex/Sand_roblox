@@ -38,7 +38,7 @@ local payload = DataService.buildPayload(session)
 Remotes.DataSync.OnClientEvent:Fire(payload)
 ccheck("UI přijalo data", UI.getState() ~= nil)
 
-for _, name in { "Shop", "Store", "Rebirth", "Index", "Codes" } do
+for _, name in { "Shop", "Shop:Backpack", "Store", "Rebirth", "Index", "Codes", "Top", "Settings" } do
 	local ok, err = pcall(UI.open, name)
 	ccheck("okno " .. name, ok, err)
 	Remotes.DataSync.OnClientEvent:Fire(payload)
@@ -57,6 +57,9 @@ local ok, err = pcall(function()
 	Remotes.ChestOpened.OnClientEvent:Fire("Common", 60, "AncientCoin", false, Vector3.new(5, 5, 5))
 	Remotes.ChestOpened.OnClientEvent:Fire("Rare", 300, nil, false, Vector3.new(5, 5, 5))
 	Remotes.OpenWindow.OnClientEvent:Fire("Shop")
+	Remotes.Reward.OnClientEvent:Fire("Daily", 400)
+	UI.flyCoins(6)
+	UI.applySettings({ Music = 0, Sfx = 0.5, LowGfx = true, Popups = false })
 	Effects.setStorm("Warning")
 	Effects.setStorm("Active")
 	Effects.setStorm("Calm")

@@ -270,6 +270,8 @@ Start with your BARE HANDS and dig your way to the mighty TITAN EXCAVATOR!
 🏛️ Uncover the LOST RUINS and the legendary relic
 🌪️ Survive the SANDSTORM that buries the desert again
 ♻️ Rebirth for x1.5 coins forever
+🏝️ Hang out in OASIS TOWN – shops, VIP lounge & daily rewards
+🏆 Climb the GLOBAL LEADERBOARDS and get your own statue!
 
 🎟️ CODES: RELEASE • TIKTOK • INSTA (more on our TikTok!)
 👍 Like & ⭐ Favorite for more updates!

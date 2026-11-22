@@ -9,6 +9,24 @@ a všechno znovu zasype – s novými poklady.
 > žánrem „kopej a vylepšuj" z videa, ale nekopíruje cizí hru – to je důležité,
 > aby ti ji Roblox nesmazal a abys ji mohl/a v klidu propagovat.
 
+## 🆕 Verze 1.1 – co je nového
+
+| | |
+|---|---|
+| ![Hlavní menu](docs/preview/03_menu.jpg) | ![HUD](docs/preview/04_hud.jpg) |
+| ![Obchod s 3D náhledy](docs/preview/05_shop.jpg) | ![Store](docs/preview/06_store.jpg) |
+| ![Žebříček](docs/preview/07_zebricek.jpg) | ![Lobby Oasis Town](docs/preview/01_lobby_shora.jpg) |
+
+- 🏝️ **Nová velká lobby „Oasis Town"** (120×120): oáza s vodou a zlatou sochou, trh s obchodníky,
+  prodejní pavilon, rebirth chrám, brány s rampami, VIP salonek, denní truhla, tabule „How to play"
+- 🏆 **Globální žebříčky** (mince, písek, rebirthy) na tabulích v lobby i v UI + **socha hráče č. 1**
+- 🎵 **Originální hudba a zvuky** – 3 hudební smyčky (lobby, poušť, bouře), vítr a 12 efektů
+- ✨ **Úplně nové UI**: hlavní menu s průletem kamery, 3D tlačítka, animované mince,
+  obchod s **otáčejícími se 3D náhledy nástrojů**, okna se rozmazaným pozadím, nastavení (hlasitost, low graphics)
+- 🎁 **Denní odměny** a **VIP truhla**
+- 🧱 **Opraveno „vidění skrz písek"** (po kopání se mažou tenké průsvitné zbytky terénu, kamera nesmí do zdí)
+- 📸 Náhledy výše jsou vyrenderované přímo z kódu hry (viz `tests/preview_export.luau`) – ve hře to vypadá velmi podobně.
+
 ## Co hra obsahuje
 
 | Funkce | Popis |
@@ -25,6 +43,10 @@ a všechno znovu zasype – s novými poklady.
 | 🎟️ Kódy | Pro TikTok/Instagram (`TIKTOK`, `INSTA`, …) |
 | 👥 Skupina | Bonus +10 % pro členy tvé Roblox skupiny |
 | 💾 Ukládání | DataStore se zámkem proti ztrátě dat, ochrana nákupů proti dvojímu připsání |
+| 🏝️ Lobby Oasis Town | Velké město s obchody, NPC, oázou, VIP salonkem a žebříčky |
+| 🏆 Žebříčky | Globální (OrderedDataStore) + socha nejlepšího hráče |
+| 🎵 Hudba | Originální, mění se podle místa (lobby / poušť / bouře) |
+| 🎁 Denní odměny | Denní truhla pro všechny, VIP truhla pro VIP |
 | 📱 Mobil/PC/konzole | UI se samo škáluje, kopání dotykem, myší i ovladačem |
 
 ## Rychlý start (5 minut)
@@ -49,13 +71,18 @@ Celý podrobný návod (publikování, gamepassy, ukládání, nastavení hry):
 ```
 src/
   shared/              -> ReplicatedStorage/Shared
-    Config.luau          ⭐ VŠECHNO NASTAVENÍ HRY (ceny, nástroje, gamepass ID, kódy)
+    Config.luau          ⭐ VŠECHNO NASTAVENÍ HRY (ceny, nástroje, gamepass ID, kódy, hudba)
     Remotes.luau         komunikace server <-> klient
     Util.luau            formátování čísel a času
+    ToolFactory.luau     modely nástrojů (do ruky, do lobby i do náhledů v obchodě)
   server/              -> ServerScriptService/Server
     Main.server.luau     spouští hru
     Services/
-      WorldService       generování pouště, tábora, ruin + kopání do terénu
+      WorldService       generování pouště a ruin + kopání do terénu
+      LobbyBuilder       lobby Oasis Town (stavby, NPC, oáza, VIP salonek…)
+      Build              pomocné funkce pro stavění z partů
+      LeaderboardService globální žebříčky + socha hráče č. 1
+      RewardService      denní odměny, VIP salonek, gamepass stánky
       DigService         ověření a zpracování kopání (proti hackům)
       TreasureService    truhly, artefakty, relikvie
       ShopService        prodej, obchod, rebirth, kódy, teleport
@@ -63,13 +90,19 @@ src/
       SandstormService   písečná bouře
       DataService        ukládání dat
       Stats              výpočty bonusů
-      ToolFactory        modely nástrojů
   client/              -> StarterPlayer/StarterPlayerScripts/Client
-    Main.client.luau     propojení UI, kopání a efektů
-    UI.luau              celé uživatelské rozhraní
+    Main.client.luau     hlavní menu -> hra, propojení všeho
+    UI.luau              vstup do UI (HUD + okna + menu)
+    UIKit.luau           stavebnice UI (3D tlačítka, panely, posuvníky…)
+    Hud.luau             mince, menu, banner pouště, batoh, notifikace
+    Windows.luau         okna: Shop, Store, Rebirth, Index, Codes, Top, Settings
+    MainMenu.luau        úvodní obrazovka s průletem kamery
+    Audio.luau           hudba, ambience, zvukové efekty
     DigController.luau   ovládání kopání
-    Effects.luau         prach, čísla, bouře, zvuky
+    Effects.luau         prach, čísla, bouře, třesení kamery
+assets/audio/          originální hudba a zvuky (nahraj na Roblox, viz návod 6.5)
 tools/build_place.py   sestaví DuneDiggers.rbxlx ze src/
+tools/audio/           generátor hudby a zvuků (Python)
 tools/graphics/        generátor marketingových grafik (three.js)
 marketing/graphics/    hotové grafiky pro Instagram/TikTok/Roblox
 tests/                 automatické testy logiky mimo Roblox

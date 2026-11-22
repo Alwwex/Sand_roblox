@@ -1,4 +1,6 @@
 import { SCENES } from './scenes.js';
+import { PREVIEW_SCENES } from './preview.js';
+Object.assign(SCENES, PREVIEW_SCENES);
 import { createOverlay } from './overlay.js';
 
 const params = new URLSearchParams(location.search);
