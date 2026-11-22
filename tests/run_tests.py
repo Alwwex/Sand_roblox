@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
 SHARED = ["Config", "Remotes", "Util", "ToolFactory"]
-CLIENT = ["UIKit", "Audio", "Effects", "Hud", "Windows", "MainMenu", "DigController", "UI"]
+CLIENT = ["UIKit", "Audio", "Effects", "Hotbar", "Hud", "Windows", "MainMenu", "DigController", "UI"]
 SERVICES = [
     "Build",
     "LobbyBuilder",

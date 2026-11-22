@@ -273,7 +273,13 @@ ok = Remotes.ClaimDaily.OnServerInvoke(player)
 check("denní odměna jen jednou", not ok)
 check("celkové mince rostou", session.Data.TotalCoins >= session.Data.Coins)
 Remotes.SaveSettings.OnServerEvent:Fire(player, { Music = 0.2, Sfx = 5, Hack = true, LowGfx = "x" })
-check("nastavení uloženo a ořezáno", session.Data.Settings.Music == 0.2 and session.Data.Settings.Sfx == 1 and session.Data.Settings.Hack == nil and session.Data.Settings.LowGfx == false)
+check(
+	"nastavení uloženo a ořezáno",
+	session.Data.Settings.Music == 0.2
+		and session.Data.Settings.Sfx == 1
+		and session.Data.Settings.Hack == nil
+		and session.Data.Settings.LowGfx == false
+)
 
 print("== Ukládání ==")
 mock.services.Players.PlayerRemoving:Fire(player)

@@ -85,6 +85,8 @@ vytvoří kódem při spuštění hry**. Proto je Workspace prázdný.
    - Drž **levé tlačítko myši** (na mobilu prst) → kopeš tam, kam míříš. V lobby se kopat nedá.
    - Písek se ukládá do batohu (lišta dole). Když je plný, vrať se na **zlatou plochu „SELL SAND"** v pavilonu.
    - Nástroje a batohy kupuješ v **🛒 SHOP** (tlačítko vlevo, nebo u stánků **TOOL SHOP** / **BACKPACKS**).
+   - Mezi koupenými nástroji přepínáš ve **vlastní liště dole** (klávesy **1–9**, klik/tap, na ovladači **LB/RB**).
+     Stejné číslo znovu = nástroj schováš / vytáhneš. Poslední zamčený slot ukazuje cenu dalšího nástroje.
    - Když odkopeš písek nad truhlou, rozsvítí se → přijdi k ní a otevři ji (**E** / tap).
    - **⛺ CAMP** tě teleportuje zpět do lobby, **🎁 DAILY** dá denní odměnu, **🏆 TOP** ukáže žebříček.
    - **⚙️ SETTINGS**: hlasitost hudby a zvuků, *Low graphics* pro slabší mobily.

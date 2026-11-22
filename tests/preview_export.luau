@@ -51,16 +51,18 @@ local function encode(v)
 		end
 		return string.format("%.6g", v)
 	elseif t == "string" then
-		return '"' .. v:gsub('[%c"\\]', function(c)
-			if c == "\n" then
-				return "\\n"
-			elseif c == '"' then
-				return '\\"'
-			elseif c == "\\" then
-				return "\\\\"
-			end
-			return ""
-		end) .. '"'
+		return '"'
+			.. v:gsub('[%c"\\]', function(c)
+				if c == "\n" then
+					return "\\n"
+				elseif c == '"' then
+					return '\\"'
+				elseif c == "\\" then
+					return "\\\\"
+				end
+				return ""
+			end)
+			.. '"'
 	elseif t == "table" then
 		if #v > 0 then
 			local parts = {}
@@ -111,7 +113,13 @@ local function serializeGui(inst)
 	local d = mock.dataOf(inst)
 	local node = { c = d.ClassName, n = d.Name, p = {}, k = {} }
 	for key, value in d do
-		if type(key) == "string" and key:sub(1, 2) ~= "__" and key ~= "Parent" and key ~= "ClassName" and key ~= "Name" then
+		if
+			type(key) == "string"
+			and key:sub(1, 2) ~= "__"
+			and key ~= "Parent"
+			and key ~= "ClassName"
+			and key ~= "Name"
+		then
 			local nv = norm(value)
 			if nv ~= nil and type(nv) ~= "function" then
 				node.p[key] = nv
@@ -165,7 +173,10 @@ for _, inst in map:GetDescendants() do
 					size = norm(d.Size),
 				})
 			else
-				table.insert(signs, { i = index[part], text = label.Text, col = norm(label.TextColor3), face = norm(d.Face) or "Front" })
+				table.insert(
+					signs,
+					{ i = index[part], text = label.Text, col = norm(label.TextColor3), face = norm(d.Face) or "Front" }
+				)
 			end
 		end
 	end

@@ -47,7 +47,7 @@ Očekávaný výsledek:
 
 ```
 VÝSLEDEK: 81 OK, 0 CHYB
-KLIENT: 13 OK, 0 CHYB
+KLIENT: 22 OK, 0 CHYB
 ```
 
 ## Náhledové obrázky (lobby + UI)

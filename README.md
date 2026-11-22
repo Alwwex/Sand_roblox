@@ -24,6 +24,8 @@ a všechno znovu zasype – s novými poklady.
 - ✨ **Úplně nové UI**: hlavní menu s průletem kamery, 3D tlačítka, animované mince,
   obchod s **otáčejícími se 3D náhledy nástrojů**, okna se rozmazaným pozadím, nastavení (hlasitost, low graphics)
 - 🎁 **Denní odměny** a **VIP truhla**
+- 🎒 **Vlastní výběr nástrojů** místo Roblox hotbaru: 3D náhledy, klávesy 1–9, LB/RB na ovladači,
+  zamčený slot s cenou dalšího nástroje
 - 🧱 **Opraveno „vidění skrz písek"** (po kopání se mažou tenké průsvitné zbytky terénu, kamera nesmí do zdí)
 - 📸 Náhledy výše jsou vyrenderované přímo z kódu hry (viz `tests/preview_export.luau`) – ve hře to vypadá velmi podobně.
 
@@ -95,6 +97,7 @@ src/
     UI.luau              vstup do UI (HUD + okna + menu)
     UIKit.luau           stavebnice UI (3D tlačítka, panely, posuvníky…)
     Hud.luau             mince, menu, banner pouště, batoh, notifikace
+    Hotbar.luau          vlastní výběr nástrojů (místo Roblox hotbaru)
     Windows.luau         okna: Shop, Store, Rebirth, Index, Codes, Top, Settings
     MainMenu.luau        úvodní obrazovka s průletem kamery
     Audio.luau           hudba, ambience, zvukové efekty

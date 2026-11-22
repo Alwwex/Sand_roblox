@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Hotbar = require(script.Parent.Hotbar)
 local UIKit = require(script.Parent.UIKit)
 
 local T = UIKit.Theme
@@ -235,7 +236,7 @@ local function buildSandBar()
 	local panel = new("Frame", {
 		Name = "Backpack",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -80),
+		Position = UDim2.new(0.5, 0, 1, -104),
 		Size = UDim2.fromOffset(520, 84),
 		BackgroundTransparency = 1,
 		Parent = root,
@@ -467,6 +468,7 @@ function Hud.update(newState)
 		backpack and backpack.Name or ""
 	)
 	refs.Hint.Visible = state.TotalSand < 150
+	Hotbar.update(state)
 
 	-- upozornění (červené tečky)
 	local canBuy = false
@@ -505,6 +507,7 @@ function Hud.build(gui: ScreenGui, context)
 	buildMenu()
 	buildBanner()
 	buildSandBar()
+	Hotbar.build(root, ctx)
 	refs.Toasts = new("Frame", {
 		Name = "Toasts",
 		AnchorPoint = Vector2.new(0.5, 0),

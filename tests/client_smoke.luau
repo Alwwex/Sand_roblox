@@ -67,6 +67,42 @@ local ok, err = pcall(function()
 end)
 ccheck("notifikace, efekty, bouře", ok, err)
 
+-- vlastní hotbar (výběr nástrojů)
+ccheck("výchozí Roblox hotbar vypnutý", mock.coreGui and mock.coreGui.Backpack == false)
+local hotbar
+for _, inst in gui:GetDescendants() do
+	if inst.Name == "Hotbar" then
+		hotbar = inst
+	end
+end
+ccheck("hotbar existuje", hotbar ~= nil)
+session.Data.OwnedTools = { Hands = true, Spoon = true, Shovel = true }
+session.Data.EquippedTool = "Hands"
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+local slotCount = 0
+for _, child in hotbar:GetChildren() do
+	if child.ClassName == "Frame" then
+		slotCount += 1
+	end
+end
+ccheck("hotbar: 3 nástroje + zamčený slot", slotCount == 4, slotCount)
+local UIS = mock.services.UserInputService
+UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.Three, UserInputType = Enum.UserInputType.Keyboard }, false)
+mock.advance(0.5)
+ccheck("klávesa 3 vybere Shovel", session.Data.EquippedTool == "Shovel", session.Data.EquippedTool)
+local held = localPlayer.Character:FindFirstChildOfClass("Tool")
+ccheck("Shovel je v ruce", held and held:GetAttribute("DigToolId") == "Shovel")
+Remotes.DataSync.OnClientEvent:Fire(DataService.buildPayload(session))
+UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.Three, UserInputType = Enum.UserInputType.Keyboard }, false)
+ccheck("znovu 3 = schovat nástroj", localPlayer.Character:FindFirstChildOfClass("Tool") == nil)
+UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.Three, UserInputType = Enum.UserInputType.Keyboard }, false)
+ccheck("znovu 3 = vytáhnout nástroj", localPlayer.Character:FindFirstChildOfClass("Tool") ~= nil)
+UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.ButtonL1, UserInputType = Enum.UserInputType.Gamepad1 }, false)
+mock.advance(0.5)
+ccheck("LB přepne na předchozí (Spoon)", session.Data.EquippedTool == "Spoon", session.Data.EquippedTool)
+UIS.InputBegan:Fire({ KeyCode = Enum.KeyCode.Two, UserInputType = Enum.UserInputType.Keyboard }, true)
+ccheck("klávesa v chatu se ignoruje", session.Data.EquippedTool == "Spoon")
+
 -- tlačítka v obchodě: projdeme všechna TextButton a "klikneme"
 local clicked = 0
 ok, err = pcall(function()

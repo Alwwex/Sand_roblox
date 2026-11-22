@@ -127,7 +127,7 @@ for (const [name, cfg] of Object.entries(UI_STATES)) {
     for (let i = 0; i < 3; i++) r.composer.render();
     if (cfg.blur) r.renderer.domElement.style.filter = 'blur(7px)';
     const tree = await load('ui_' + name);
-    await renderGuiTree(tree, W, H, name === 'menu' ? {} : { leaderstats: '48.2K &nbsp;&nbsp;&nbsp; 2', tool: 'Sand Vacuum' });
+    await renderGuiTree(tree, W, H, name === 'menu' ? {} : { leaderstats: '48.2K &nbsp;&nbsp;&nbsp; 2' });
     return { after: async () => {} };
   };
 }

@@ -5,6 +5,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -63,6 +64,19 @@ end
 ---------------------------------------------------------------------
 -- Start
 ---------------------------------------------------------------------
+
+-- Výchozí Roblox hotbar vypneme – máme vlastní výběr nástrojů (Hotbar)
+task.spawn(function()
+	for _ = 1, 20 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+		end)
+		if ok then
+			break
+		end
+		task.wait(0.5)
+	end
+end)
 
 Audio.init()
 UI.init({ sfx = Audio.sfx, settingsChanged = onSettingsChanged, toggleMusic = toggleMusic })

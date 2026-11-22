@@ -97,7 +97,11 @@ local function matMul(a, b)
 	return r
 end
 local function matVec(a, v)
-	return Vector3.new(a[1] * v.X + a[2] * v.Y + a[3] * v.Z, a[4] * v.X + a[5] * v.Y + a[6] * v.Z, a[7] * v.X + a[8] * v.Y + a[9] * v.Z)
+	return Vector3.new(
+		a[1] * v.X + a[2] * v.Y + a[3] * v.Z,
+		a[4] * v.X + a[5] * v.Y + a[6] * v.Z,
+		a[7] * v.X + a[8] * v.Y + a[9] * v.Z
+	)
 end
 local function transpose(a)
 	return { a[1], a[4], a[7], a[2], a[5], a[8], a[3], a[6], a[9] }
@@ -175,7 +179,8 @@ CFrame = {
 			right = Vector3.new(1, 0, 0)
 		end
 		right = right.Unit
-		local u = Vector3.new(right.Y * f.Z - right.Z * f.Y, right.Z * f.X - right.X * f.Z, right.X * f.Y - right.Y * f.X)
+		local u =
+			Vector3.new(right.Y * f.Z - right.Z * f.Y, right.Z * f.X - right.X * f.Z, right.X * f.Y - right.Y * f.X)
 		return mkCF(at, { right.X, u.X, -f.X, right.Y, u.Y, -f.Y, right.Z, u.Z, -f.Z })
 	end,
 }
@@ -200,8 +205,12 @@ Color3.new = function(r, g, b)
 		R = r,
 		G = g,
 		B = b,
-		Lerp = function(self)
-			return self
+		Lerp = function(self, other, t)
+			return Color3.new(
+				self.R + (other.R - self.R) * t,
+				self.G + (other.G - self.G) * t,
+				self.B + (other.B - self.B) * t
+			)
 		end,
 	}
 end
@@ -310,6 +319,7 @@ local SIGNAL_NAMES = {
 	RenderStepped = true,
 	Died = true,
 	ChildAdded = true,
+	ChildRemoved = true,
 	AncestryChanged = true,
 	Activated = true,
 	Deactivated = true,
@@ -448,6 +458,20 @@ local function newInstance(className, name)
 	function methods:Play() end
 	function methods:EquipTool(tool)
 		tool.Parent = data.Parent
+	end
+	function methods:UnequipTools()
+		local character = data.Parent
+		local player = mock.services.Players:GetPlayerFromCharacter(character)
+		local backpack = player and player:FindFirstChildOfClass("Backpack")
+		for _, child in character:GetChildren() do
+			if child.ClassName == "Tool" and backpack then
+				child.Parent = backpack
+			end
+		end
+	end
+	function methods:SetCoreGuiEnabled(kind, enabled)
+		mock.coreGui = mock.coreGui or {}
+		mock.coreGui[kind.Name] = enabled
 	end
 	data.__methods = methods
 
@@ -704,9 +728,11 @@ mock.dataOf(dataStoreService).__methods.GetOrderedDataStore = function(_, name)
 			while #list > pageSize do
 				table.remove(list)
 			end
-			return { GetCurrentPage = function()
-				return list
-			end }
+			return {
+				GetCurrentPage = function()
+					return list
+				end,
+			}
 		end,
 	}
 end
@@ -768,6 +794,7 @@ for _, name in
 		"ServerStorage",
 		"TextChatService",
 		"UserInputService",
+		"StarterGui",
 	}
 do
 	services[name] = newInstance(name, name)

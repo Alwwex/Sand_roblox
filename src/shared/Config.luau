@@ -20,6 +20,7 @@ Config.Changelog = {
 	"🎵 Original music & sounds",
 	"🎁 Daily rewards & VIP lounge",
 	"✨ Brand new UI & main menu",
+	"🎒 Custom item selector (keys 1-9)",
 	"🧱 Fixed see-through sand",
 }
 
